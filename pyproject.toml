@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "echolock"
+version = "1.0.0"
+description = "Voice and rotating-passphrase unlock overlay, with speaker features built from scratch."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["speaker-verification", "mfcc", "dsp", "liveness", "voice"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+]
+
+# The verification core needs numpy and nothing else; the feature pipeline and
+# scoring are implemented directly. Hardware and speech support are extras so
+# the library, and its tests, install and run anywhere.
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+audio = ["sounddevice>=0.4"]
+speech = ["vosk>=0.3.44"]
+dev = ["pytest>=8", "scipy>=1.10"]
+
+[project.scripts]
+echolock = "echolock.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]

@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Speech models are large and downloaded per machine.
+models/
+vosk-model-*/
+
+# Never commit recordings or a profile.
+*.wav
+*.npz
+voiceprint.json
+config.json
