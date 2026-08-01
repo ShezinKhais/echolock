@@ -75,7 +75,7 @@ not enough to work out tomorrow's phrase and prepare a recording in advance.
 ## Install
 
 ```bash
-git clone https://github.com/Spy125/echolock
+git clone https://github.com/ShezinKhais/echolock
 cd echolock
 pip install -e ".[audio,speech]"
 ```
