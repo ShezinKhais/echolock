@@ -246,6 +246,18 @@ def cmd_autostart(args: argparse.Namespace) -> int:
     """Turn the login-time overlay on or off."""
     from .autostart import AutostartUnavailable, disable, enable, is_enabled, shortcut_path
 
+    # Asking the state is a read-only question and must answer on any platform,
+    # including one where autostart cannot be configured at all. Only the
+    # commands that change something report an unsupported platform as an error.
+    if args.action == "status":
+        try:
+            location = f"  ({shortcut_path()})"
+        except AutostartUnavailable as exc:
+            print(f"Autostart is off and cannot be configured here: {exc}")
+            return 0
+        print(f"Autostart is {'on' if is_enabled() else 'off'}{location}")
+        return 0
+
     try:
         if args.action == "on":
             path = enable()
@@ -254,10 +266,8 @@ def cmd_autostart(args: argparse.Namespace) -> int:
                 "\nThis covers the desktop after you log in. It does not replace the\n"
                 "Windows login itself, which no ordinary program is allowed to do."
             )
-        elif args.action == "off":
-            print("Autostart removed." if disable() else "Autostart was not enabled.")
         else:
-            print(f"Autostart is {'on' if is_enabled() else 'off'}  ({shortcut_path()})")
+            print("Autostart removed." if disable() else "Autostart was not enabled.")
     except AutostartUnavailable as exc:
         raise SystemExit(f"error: {exc}")
     return 0

@@ -8,6 +8,8 @@ readable message rather than a traceback.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from echolock.cli import build_parser, main
@@ -161,10 +163,24 @@ class TestConfigCommand:
 
 
 class TestAutostartCommand:
-    def test_status_does_not_change_anything(self, capsys):
+    def test_status_works_on_every_platform(self, capsys):
+        """Asking the state is read-only and must answer even where it cannot be set.
+
+        On Linux there is no Startup folder to inspect, and an earlier version
+        raised there, which failed continuous integration. Reporting is the
+        correct behaviour; only turning autostart on or off may refuse.
+        """
+        assert main(["autostart", "status"]) == 0
+        assert "Autostart is" in capsys.readouterr().out
+
+    def test_status_does_not_change_anything(self):
         from echolock import autostart
 
         before = autostart.is_enabled()
-        assert main(["autostart", "status"]) == 0
+        main(["autostart", "status"])
         assert autostart.is_enabled() is before
-        assert "Autostart is" in capsys.readouterr().out
+
+    @pytest.mark.skipif(os.name == "nt", reason="Windows can configure autostart")
+    def test_enabling_refuses_where_unsupported(self):
+        with pytest.raises(SystemExit):
+            main(["autostart", "on"])
