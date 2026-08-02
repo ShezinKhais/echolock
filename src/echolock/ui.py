@@ -1,9 +1,8 @@
 """The unlock overlay.
 
 **What this is, precisely.** A fullscreen always-on-top window that covers the
-desktop and dismisses when the enrolled speaker reads the current passphrase.
-It is a convenience layer, not a security boundary, and the distinction is
-worth stating plainly because it drives the whole design.
+desktop and dismisses when the enrolled speaker reads the current passphrase,
+or when the fallback PIN is entered.
 
 A background application on Windows cannot type into the real login screen:
 Winlogon runs on a separate secure desktop that ordinary processes are
@@ -11,21 +10,29 @@ deliberately unable to reach. That isolation is the same mechanism that stops
 malware from automating its way past a password prompt, and working around it
 is neither possible from here nor desirable.
 
-So the overlay does not replace Windows authentication and does not pretend to.
-It sits in front of an already-unlocked session as a fast path for the person
-who owns it, and every way out of it leads somewhere at least as safe:
+**How much of a barrier it is, measured.** :mod:`echolock.guard` holds the
+window in front: the Windows key, Ctrl+Escape, Alt+Tab, Alt+F4 and focus theft
+were all confirmed to dismiss an unguarded overlay and all confirmed to fail
+against a guarded one, by driving real input at a real window rather than by
+assertion. What no user-space program can stop is Ctrl+Alt+Delete, because that
+sequence is reserved precisely so the login screen cannot be faked, and from it
+Task Manager will end this process and reveal the desktop.
 
-* the phrase is verified: the overlay closes, revealing the session it was
-  already covering, so nothing has been unlocked that was locked
-* attempts are exhausted, or the user presses Escape: the real Windows lock
-  is invoked, so the session ends up more protected than before
-* the process is killed, or the machine reboots: Windows' own lock screen is
-  untouched and still applies
+So this resists everything casual and loses to a determined person with
+physical access. On a machine where Windows still has a password that gap
+hardly matters, since the session behind the overlay was reached by
+authenticating anyway. On a machine configured to sign in automatically it is
+the whole story, and it is why the README says the overlay is a convenience
+layer even when it is the only thing on screen.
 
-There is no failure mode in which this software grants access that the
-operating system would have denied. That property is what makes it responsible
-to run, and it is the reason the fallback path locks the session rather than
-simply closing the window.
+Every exit leads somewhere defensible:
+
+* the phrase is verified, or the PIN is correct: the overlay closes, revealing
+  the session it was covering, so nothing was unlocked that was locked
+* attempts are exhausted, or Escape is pressed: the PIN is asked for; with no
+  PIN set, the real Windows lock is invoked instead
+* the process is killed, or the machine reboots: whatever authentication
+  Windows itself is configured with still applies, untouched
 """
 
 from __future__ import annotations
@@ -88,6 +95,7 @@ class Overlay:
         self._pin_frame = None
         self._pin_entry = None
         self._pin_message = None
+        self.guard = None
 
         self.phrase = self._next_phrase()
         self._build_window()
@@ -150,6 +158,12 @@ class Overlay:
             font=("Segoe UI", 10), fg=DIM, bg=BACKGROUND,
         ).pack(pady=(30, 0))
 
+        # Hold the window in front. Without this the overlay is dismissed by
+        # Alt+Tab or the Windows key, which matters as soon as anyone relies
+        # on it rather than merely enjoys it.
+        from .guard import Guard
+
+        self.guard = Guard(self.root).install()
         self.root.after(100, self._prepare_transcriber)
 
     # -- worker ------------------------------------------------------------
@@ -348,7 +362,13 @@ class Overlay:
         self.status_label.config(text=text, fg=colour)
 
     def run(self) -> int:
-        self.root.mainloop()
+        try:
+            self.root.mainloop()
+        finally:
+            # A keyboard hook that outlives its window would swallow the
+            # Windows key for the whole session.
+            if self.guard is not None:
+                self.guard.remove()
         return 0 if self.unlocked else 1
 
 

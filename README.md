@@ -162,6 +162,32 @@ yields nothing typeable. Guessing is throttled by a delay that doubles with each
 failure, and the counter is written to disk rather than held in memory, because
 a throttle that lives only in the process is bypassed by killing the process.
 
+### How much of a barrier the overlay is
+
+Measured rather than asserted. `packaging/bypass_probe.py` puts a window up
+twice, once guarded and once not, drives real keyboard input at it, and reports
+which routes got past:
+
+| Route | Unguarded | Guarded |
+|---|---|---|
+| Alt+Tab | got past | held |
+| Windows key | got past | held |
+| Ctrl+Escape | got past | held |
+| Focus stolen by another window | got past | held |
+| **Ctrl+Alt+Delete, then End Task** | **gets past** | **gets past** |
+
+The last row cannot be fixed from user space and is not a defect. Ctrl+Alt+Delete
+is the secure attention sequence: no application sees it, which is exactly the
+guarantee that lets you trust the real login screen is genuine. Suppressing Task
+Manager would mean a machine-wide Group Policy change, which this program has no
+business making.
+
+The keys are swallowed by a low-level keyboard hook, active only while the
+overlay is up. It decides block-or-pass on the key being pressed and never
+records, accumulates or stores anything; the blocked list is a fixed set in
+`guard.py`, and ordinary typing is explicitly tested to pass through so the PIN
+stays enterable.
+
 ### Using it on a machine with no Windows password
 
 On a personal desktop that no one else reaches, the overlay can be the only

@@ -284,6 +284,13 @@ def cmd_autostart(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Check everything this needs, and report what is missing."""
+    from .doctor import report
+
+    return report()
+
+
 def cmd_pin(args: argparse.Namespace) -> int:
     """Set, clear or describe the overlay's fallback PIN."""
     from .pin import PinError, clear, is_set, set_pin, status
@@ -524,6 +531,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("autostart", help="run the overlay when Windows starts")
     p.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
     p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("doctor", help="check that everything needed is present and working")
+    p.set_defaults(func=cmd_doctor)
 
     p = sub.add_parser("pin", help="fallback PIN for when your voice is not recognised")
     p.add_argument("action", nargs="?", choices=["set", "clear", "status"], default="status")

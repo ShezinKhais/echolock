@@ -110,12 +110,32 @@ class TestDailyPhrase:
         assert len(seen) > len(WORDS) * 0.7
 
     def test_phrases_rarely_repeat_within_a_year(self):
+        """A year of prompts should be almost entirely distinct.
+
+        Almost, not entirely. The phrases are drawn independently, so this is a
+        birthday problem: across roughly 1.7 million possible sentences, 365
+        draws collide about 3.8% of the time. Demanding 365 unique values, as
+        this test first did, therefore failed around one run in twenty-six on a
+        random salt, which is a flaky test rather than a real defect.
+
+        Fixed salts keep the result reproducible, and the bound asserts what the
+        design actually promises: repeats are rare, not impossible.
+        """
+        for salt in ("00" * 16, "a3" * 16, "5f" * 16):
+            phrases = {
+                phrase_for(date.fromordinal(date(2026, 1, 1).toordinal() + i), salt).text
+                for i in range(365)
+            }
+            assert len(phrases) >= 362, f"{365 - len(phrases)} repeats in a year"
+
+    def test_a_repeat_never_lands_on_consecutive_days(self):
+        """Two identical prompts in a row would be noticeable and look broken."""
         salt = new_salt()
-        phrases = {
+        texts = [
             phrase_for(date.fromordinal(date(2026, 1, 1).toordinal() + i), salt).text
             for i in range(365)
-        }
-        assert len(phrases) == 365
+        ]
+        assert all(a != b for a, b in zip(texts, texts[1:]))
 
 
 class TestEphemeralPhrase:
