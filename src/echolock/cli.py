@@ -16,11 +16,14 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .features import FeatureConfig
+from .defaults import DEFAULT_SENSITIVITY
 from .phrase import enrolment_prompts, ephemeral_phrase, format_phrase, phrase_today
 from .storage import Config, config_path, profile_dir, profile_exists, profile_path
-from .voiceprint import DEFAULT_SENSITIVITY, InsufficientAudio, Voiceprint, build_voiceprint
 
+# `features` and `voiceprint` are imported inside the commands that need them.
+# They pull in numpy, which is a sixth of a second, and most invocations here
+# never touch it: printing a phrase, listing microphones, showing the help, or
+# toggling a setting are all pure Python.
 
 
 def _stdout_utf8() -> None:
@@ -30,9 +33,11 @@ def _stdout_utf8() -> None:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
 
-def _load_profile() -> Voiceprint:
+def _load_profile():
     if not profile_exists():
         raise SystemExit("No profile found. Run 'echolock enrol' first.")
+    from .voiceprint import Voiceprint
+
     return Voiceprint.load(profile_path())
 
 
@@ -83,6 +88,9 @@ def cmd_enrol(args: argparse.Namespace) -> int:
             "Check the microphone level and try again."
         )
 
+    from .features import FeatureConfig
+    from .voiceprint import InsufficientAudio, build_voiceprint
+
     cfg = FeatureConfig(sample_rate=config.sample_rate)
     try:
         voiceprint = build_voiceprint(samples, cfg, sensitivity=args.sensitivity)
@@ -128,6 +136,7 @@ def cmd_phrase(args: argparse.Namespace) -> int:
 def cmd_check(args: argparse.Namespace) -> int:
     from .asr import SpeechUnavailable, VoskTranscriber
     from .audio import AudioUnavailable, record
+    from .features import FeatureConfig
     from .verifier import verify
 
     config = Config.load()
@@ -180,6 +189,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     if not profile_exists():
         print("\nNo voiceprint enrolled yet. Run 'echolock enrol'.")
         return 1
+
+    from .voiceprint import Voiceprint
 
     voiceprint = Voiceprint.load(profile_path())
     print(f"\nVoiceprint")

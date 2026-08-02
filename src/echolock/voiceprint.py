@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .defaults import DEFAULT_SENSITIVITY
 from .features import FeatureConfig, deltas, mfcc, voiced_mask
 
 FORMAT_VERSION = 1
@@ -43,9 +44,9 @@ MIN_VOICED_FRAMES = 30
 # small enrolment set would divide by ~0 and swamp the distance.
 SCALE_FLOOR_FRACTION = 0.05
 
-# Threshold placement, in standard deviations below the mean leave-one-out
-# score. See :func:`build_voiceprint` for how this was chosen.
-DEFAULT_SENSITIVITY = 2.0
+# Threshold placement, DEFAULT_SENSITIVITY, is imported above rather than
+# defined here so the command line and the window can read it without pulling in
+# numpy. See :func:`build_voiceprint` for how the value was chosen.
 
 # The threshold may never be looser than this, however wide the enrolment
 # spread. Without the cap, inconsistent enrolment recordings inflate the

@@ -22,10 +22,14 @@ import tkinter as tk
 from dataclasses import dataclass
 from tkinter import messagebox, ttk
 
-from .features import FeatureConfig
+from .defaults import DEFAULT_SENSITIVITY
 from .phrase import enrolment_prompts, ephemeral_phrase, format_phrase, phrase_today
 from .storage import Config, profile_exists, profile_path
-from .voiceprint import DEFAULT_SENSITIVITY, Voiceprint, build_voiceprint
+
+# `features`, `voiceprint` and `audio` are imported where they are used rather
+# than here. None of them is needed to draw the window, and all of them are
+# slow: numpy alone is a sixth of a second, which is a sixth of a second of
+# nothing on screen.
 
 BG = "#0d1117"
 PANEL = "#161b22"
@@ -247,6 +251,9 @@ class EnrolDialog(tk.Toplevel):
             )
             self.destroy()
             return
+        from .features import FeatureConfig
+        from .voiceprint import build_voiceprint
+
         try:
             voiceprint = build_voiceprint(
                 self.captured,
@@ -300,8 +307,14 @@ class EchoLockGUI:
         self.root.minsize(560, 680)
 
         self._build()
-        self.refresh()
-        self._load_model()
+
+        # Draw the window before doing anything expensive. Reading the profile
+        # pulls in numpy and listing microphones opens the audio backend, and
+        # neither is needed for the layout; running them first left the screen
+        # empty for most of the startup time. The window comes up filled with
+        # placeholders and finishes itself a frame later.
+        self.root.update_idletasks()
+        self.root.after_idle(self._start)
 
     # -- layout -----------------------------------------------------------
 
@@ -435,13 +448,28 @@ class EchoLockGUI:
             font=(FONT, 8), fg=DIM, bg=BG, justify="center",
         ).pack()
 
-        self._populate_devices()
+        # The profile has not been read yet, so nothing that needs one is
+        # clickable. `refresh` enables these once it knows what exists.
+        self.test_button.config(state="disabled")
+        self.lock_button.config(state="disabled")
+        self.state_label.config(text="starting...", fg=DIM)
 
     # -- state ------------------------------------------------------------
 
+    def _start(self) -> None:
+        """The work that was too slow to do before the window appeared."""
+        self._populate_devices()
+        self.refresh()
+        self._load_model()
+
     def refresh(self) -> None:
         """Re-read the profile and repaint everything that depends on it."""
-        self.voiceprint = Voiceprint.load(profile_path()) if profile_exists() else None
+        if profile_exists():
+            from .voiceprint import Voiceprint
+
+            self.voiceprint = Voiceprint.load(profile_path())
+        else:
+            self.voiceprint = None
         self._new_phrase()
 
         if self.voiceprint is None:
@@ -578,6 +606,7 @@ class EchoLockGUI:
         def worker() -> None:
             try:
                 from .audio import record
+                from .features import FeatureConfig
                 from .verifier import verify
 
                 audio = record(config.record_seconds, config.sample_rate, device=config.input_device)

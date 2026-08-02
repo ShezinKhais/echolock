@@ -35,14 +35,23 @@ a = Analysis(
     pathex=["../src"],
     binaries=binaries,
     datas=datas,
+    # The application imports most of itself lazily, so that starting up does
+    # not pay for numpy or the audio backend before the window is on screen.
+    # PyInstaller finds modules by walking import statements, so a deferred
+    # import is one it cannot see: every module reached only at runtime has to
+    # be named here or it is silently left out of the build.
     hiddenimports=[
-        "echolock.gui",
-        "echolock.ui",
         "echolock.asr",
         "echolock.audio",
-        "echolock.idle",
-        "echolock.download",
         "echolock.autostart",
+        "echolock.download",
+        "echolock.features",
+        "echolock.gui",
+        "echolock.idle",
+        "echolock.liveness",
+        "echolock.ui",
+        "echolock.verifier",
+        "echolock.voiceprint",
         "_cffi_backend",      # sounddevice reaches this through cffi at runtime
     ],
     hookspath=[],
