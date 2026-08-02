@@ -284,6 +284,51 @@ def cmd_autostart(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pin(args: argparse.Namespace) -> int:
+    """Set, clear or describe the overlay's fallback PIN."""
+    from .pin import PinError, clear, is_set, set_pin, status
+
+    if args.action == "status":
+        state = status()
+        if not state["set"]:
+            print("No PIN is set. The overlay falls back to the Windows login.")
+            return 0
+        print(f"PIN set on {state.get('created', 'unknown date')}")
+        print(f"  failed attempts since the last success: {state.get('failures', 0)}")
+        if state.get("locked_for", 0):
+            print(f"  currently throttled for {state['locked_for']}s")
+        return 0
+
+    if args.action == "clear":
+        if not is_set():
+            print("No PIN was set.")
+            return 0
+        print("PIN removed.")
+        clear()
+        return 0
+
+    import getpass
+
+    print(
+        "\nThis PIN opens the overlay when your voice is not recognised.\n"
+        "It is stored as a one-way hash, so nothing on disk reveals it, and\n"
+        "guessing is throttled with a delay that doubles after each failure.\n"
+    )
+    entered = getpass.getpass(f"New PIN (at least {4} characters, not shown): ")
+    if entered != getpass.getpass("Type it again: "):
+        raise SystemExit("error: the two entries did not match; nothing was changed")
+
+    try:
+        set_pin(entered)
+    except PinError as exc:
+        raise SystemExit(f"error: {exc}")
+    finally:
+        del entered
+
+    print("\nPIN set. Press Escape at the overlay to use it.")
+    return 0
+
+
 def cmd_credential(args: argparse.Namespace) -> int:
     """Store, inspect or remove the password the sign-in tile submits."""
     from .vault import VaultUnavailable, clear, exists, is_supported, store, vault_path
@@ -479,6 +524,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("autostart", help="run the overlay when Windows starts")
     p.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
     p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("pin", help="fallback PIN for when your voice is not recognised")
+    p.add_argument("action", nargs="?", choices=["set", "clear", "status"], default="status")
+    p.set_defaults(func=cmd_pin)
 
     p = sub.add_parser("credential", help="password the Windows sign-in tile submits")
     p.add_argument("action", nargs="?", choices=["set", "clear", "status"], default="status")

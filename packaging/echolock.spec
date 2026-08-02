@@ -48,6 +48,7 @@ a = Analysis(
         "echolock.features",
         "echolock.gui",
         "echolock.idle",
+        "echolock.pin",
         "echolock.liveness",
         "echolock.provider",
         "echolock.ui",

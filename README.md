@@ -133,6 +133,7 @@ echolock lock       # show the unlock overlay
 echolock status     # describe the stored profile
 echolock config     # show or change settings
 echolock autostart  # run the overlay when Windows starts
+echolock pin        # set the fallback used when your voice is not recognised
 echolock devices    # list microphones
 echolock watch      # cover the screen after a period of inactivity
 echolock reset      # delete the profile
@@ -147,6 +148,40 @@ same control as a checkbox.
 window, puts a shortcut in the Startup folder so the overlay is already covering
 the desktop by the time you get there. That is the honest limit of what a normal
 program can do, and the section below explains why.
+
+### The fallback PIN
+
+Voice verification fails for reasons that have nothing to do with who is
+standing there: a cold, a noisy room, a microphone knocked out of its socket. A
+lock with no second way in eventually traps its owner, so `echolock pin set`
+records one, and Escape at the overlay asks for it.
+
+It is not the Windows password and nothing here can recover it. What is stored
+is a PBKDF2 digest over a random per-installation salt, so reading the file
+yields nothing typeable. Guessing is throttled by a delay that doubles with each
+failure, and the counter is written to disk rather than held in memory, because
+a throttle that lives only in the process is bypassed by killing the process.
+
+### Using it on a machine with no Windows password
+
+On a personal desktop that no one else reaches, the overlay can be the only
+thing between a fresh boot and the session: remove the Windows password, set
+Windows to sign in automatically, and enable *Lock at every Windows sign-in*.
+The overlay is then covering the screen by the time the desktop appears, voice
+dismisses it, and the PIN covers the days it will not.
+
+Be clear about what that costs. Without a Windows password the machine has no
+operating-system authentication at all, and the overlay is not a substitute for
+one: it is an ordinary window, and anything that ends the process, from Task
+Manager to a reboot into Safe Mode, reveals the desktop behind it. Whether that
+matters depends entirely on who can physically reach the machine. For a home
+desktop it can be a reasonable trade; for a laptop that leaves the house it is
+not, and for anything holding someone else's data it is not.
+
+Windows does have one useful default here: accounts with a blank password are
+refused for network sign-in, so this weakens local access rather than remote.
+Changing your account password and enabling automatic sign-in are Windows
+settings, made in `netplwiz` and Settings; this program does not touch them.
 
 ### Why this does not replace the Windows login
 

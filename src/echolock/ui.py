@@ -85,6 +85,9 @@ class Overlay:
         self._results: queue.Queue[_Attempt] = queue.Queue()
         self._transcriber = None
         self._busy = False
+        self._pin_frame = None
+        self._pin_entry = None
+        self._pin_message = None
 
         self.phrase = self._next_phrase()
         self._build_window()
@@ -135,9 +138,15 @@ class Overlay:
         )
         self.detail_label.pack()
 
+        from . import pin
+
         tk.Label(
             frame,
-            text="Escape  ->  use the Windows login instead",
+            text=(
+                "Escape  ->  enter your PIN instead"
+                if pin.is_set()
+                else "Escape  ->  use the Windows login instead"
+            ),
             font=("Segoe UI", 10), fg=DIM, bg=BACKGROUND,
         ).pack(pady=(30, 0))
 
@@ -219,8 +228,12 @@ class Overlay:
     def _register_failure(self, reason: str) -> None:
         self.attempts_left -= 1
         if self.attempts_left <= 0:
+            from . import pin
+
             self._set_status("Too many attempts", BAD)
-            self.detail_label.config(text="Falling back to the Windows login.")
+            self.detail_label.config(
+                text="Use your PIN." if pin.is_set() else "Falling back to the Windows login."
+            )
             self.root.after(900, self._fall_back_to_windows)
             return
 
@@ -233,8 +246,100 @@ class Overlay:
 
     # -- exits -------------------------------------------------------------
 
+    # -- the typed fallback -------------------------------------------------
+
+    def _show_pin_entry(self) -> None:
+        """Offer the PIN instead of the voice prompt.
+
+        This is the only way out on a machine whose Windows password has been
+        removed, where handing back to the Windows lock screen would achieve
+        nothing. Where a Windows password does exist, that remains the better
+        fallback and is still offered alongside.
+        """
+        from . import pin
+
+        tk = self._tk
+        if self._pin_frame is not None:
+            self._pin_entry.focus_set()
+            return
+
+        self._pin_frame = tk.Frame(self.root, bg=BACKGROUND)
+        self._pin_frame.place(relx=0.5, rely=0.82, anchor="center")
+
+        tk.Label(
+            self._pin_frame, text="Enter your PIN", font=("Segoe UI", 12),
+            fg=DIM, bg=BACKGROUND,
+        ).pack()
+
+        self._pin_entry = tk.Entry(
+            self._pin_frame, show="*", font=("Segoe UI", 18), justify="center",
+            width=12, bg=PANEL, fg=TEXT, insertbackground=TEXT,
+            relief="flat", highlightthickness=1, highlightbackground=DIM,
+        )
+        self._pin_entry.pack(pady=8)
+        self._pin_entry.bind("<Return>", lambda _event: self._submit_pin())
+        self._pin_entry.focus_set()
+
+        self._pin_message = tk.Label(
+            self._pin_frame, text="", font=("Segoe UI", 10), fg=DIM, bg=BACKGROUND,
+        )
+        self._pin_message.pack()
+
+        waiting = pin.delay_remaining()
+        if waiting > 0:
+            self._start_pin_countdown()
+
+    def _start_pin_countdown(self) -> None:
+        """Refuse entry, visibly, until the throttle expires."""
+        from . import pin
+
+        remaining = pin.delay_remaining()
+        if remaining <= 0:
+            self._pin_entry.config(state="normal")
+            self._pin_message.config(text="", fg=DIM)
+            self._pin_entry.focus_set()
+            return
+        self._pin_entry.config(state="disabled")
+        self._pin_message.config(text=f"Too many attempts. Wait {remaining:.0f}s.", fg=BAD)
+        self.root.after(500, self._start_pin_countdown)
+
+    def _submit_pin(self) -> None:
+        from . import pin
+
+        entered = self._pin_entry.get()
+        self._pin_entry.delete(0, "end")
+        if not entered:
+            return
+
+        if pin.check(entered):
+            self.unlocked = True
+            self._set_status("Unlocked", GOOD)
+            self._pin_message.config(text="", fg=DIM)
+            self.root.after(300, self.root.destroy)
+            return
+
+        waiting = pin.delay_remaining()
+        if waiting > 0:
+            self._start_pin_countdown()
+        else:
+            self._pin_message.config(text="Incorrect.", fg=BAD)
+
+    # -- exits -------------------------------------------------------------
+
     def _fall_back_to_windows(self) -> None:
-        """Hand over to the real lock screen and close."""
+        """Leave by the safest route this machine actually has.
+
+        With a PIN configured, Escape opens it rather than closing anything: on
+        a machine whose Windows password has been removed, locking the session
+        is not a fallback, it is a dead end that leaves the desktop exposed the
+        moment the overlay goes away. Without a PIN the original behaviour
+        stands, because then the Windows login is a real barrier.
+        """
+        from . import pin
+
+        if pin.is_set():
+            self._show_pin_entry()
+            return
         if self.lock_session:
             lock_windows_session()
         self.root.destroy()

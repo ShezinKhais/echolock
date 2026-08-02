@@ -10,20 +10,28 @@ user secrets: DPAPI's per-user key is derived from the account's credentials and
 is not available at the logon desktop. The only key that exists at that point
 belongs to the machine.
 
-So the blob here is encrypted with :c:func:`CryptProtectData` in machine scope.
-That defeats someone who copies the file, or who pulls the drive out and reads
-it elsewhere, because the key never leaves this installation of Windows. It does
-*not* defeat code already running as Administrator or SYSTEM on this machine:
-such code can call :c:func:`CryptUnprotectData` and recover the password, in the
-same way it could install a keylogger. An entropy value tied to this module is
-mixed in, which means an attacker must know they are looking at EchoLock data,
-but that is obscurity and is not counted as protection.
+So the blob here is encrypted with :c:func:`CryptProtectData` in machine scope,
+and it is important to be exact about what that buys, because it is less than it
+sounds. Machine scope means the key belongs to this installation of Windows: the
+blob is useless on another machine or from a drive read elsewhere. It does *not*
+mean elevation is required to decrypt it. Any process on this machine that can
+read the file can call :c:func:`CryptUnprotectData` and recover the password,
+with no Administrator rights involved. This was measured rather than assumed: an
+ordinary unelevated process decrypted a test blob on the first attempt.
+
+The file's access control list is therefore the only barrier between another
+account on this machine and the password, which is why :func:`_restrict` is a
+correctness requirement here rather than hardening. An entropy value tied to this
+module is mixed in, so a generic DPAPI tool cannot open the blob without knowing
+what it belongs to, but that is obscurity and is not counted as protection.
 
 The honest summary: enabling this converts "my Windows password exists only in
-my head" into "my Windows password is on this disk, recoverable by anything with
-Administrator rights". A phone avoids that with a secure element that releases a
-key only on a sensor match; a desktop with no such hardware binding cannot.
-Nothing here is enabled by default, and :func:`clear` removes it completely.
+my head" into "my Windows password is on this disk, recoverable by anything that
+can read one file on this machine". A phone avoids that with a secure element
+that releases a key only on a sensor match; a desktop with no such hardware
+binding cannot. Nothing here is enabled by default, :func:`clear` removes it
+completely, and :mod:`echolock.pin` exists precisely so the overlay has a
+fallback that needs no recoverable secret at all.
 """
 
 from __future__ import annotations
@@ -63,9 +71,16 @@ def is_supported() -> bool:
     return os.name == "nt"
 
 
-def _blob(data: bytes) -> _Blob:
+def _blob(data: bytes) -> tuple[_Blob, ctypes.Array]:
+    """Build a DATA_BLOB and return the buffer backing it.
+
+    The caller has to keep that buffer alive. The structure holds a raw pointer,
+    which is not a reference Python counts, so letting the buffer go out of scope
+    while the API is still reading it is a use-after-free. It happens to work
+    most of the time, which is exactly what makes it worth being careful about.
+    """
     buffer = ctypes.create_string_buffer(data, len(data))
-    return _Blob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char)))
+    return _Blob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))), buffer
 
 
 def _read_blob(blob: _Blob) -> bytes:
@@ -82,10 +97,12 @@ def protect(secret: bytes) -> bytes:
     """Encrypt *secret* under the machine key."""
     crypt32 = _crypt32()
     out = _Blob()
+    incoming, _keep_in = _blob(secret)
+    entropy, _keep_entropy = _blob(_ENTROPY)
     ok = crypt32.CryptProtectData(
-        ctypes.byref(_blob(secret)),
+        ctypes.byref(incoming),
         ctypes.c_wchar_p("EchoLock credential"),
-        ctypes.byref(_blob(_ENTROPY)),
+        ctypes.byref(entropy),
         None, None,
         CRYPTPROTECT_LOCAL_MACHINE | CRYPTPROTECT_UI_FORBIDDEN,
         ctypes.byref(out),
@@ -102,10 +119,12 @@ def unprotect(blob: bytes) -> bytes:
     """Decrypt what :func:`protect` produced, on the machine that produced it."""
     crypt32 = _crypt32()
     out = _Blob()
+    incoming, _keep_in = _blob(blob)
+    entropy, _keep_entropy = _blob(_ENTROPY)
     ok = crypt32.CryptUnprotectData(
-        ctypes.byref(_blob(blob)),
+        ctypes.byref(incoming),
         None,
-        ctypes.byref(_blob(_ENTROPY)),
+        ctypes.byref(entropy),
         None, None,
         CRYPTPROTECT_UI_FORBIDDEN,
         ctypes.byref(out),
@@ -126,10 +145,16 @@ def store(password: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(protect(password.encode("utf-8")))
 
-    # Owner-only, so another account on this machine cannot read the blob
-    # without first elevating. Elevated code can still read it; this narrows
-    # the window rather than closing it.
-    _restrict(target)
+    # Machine-scope DPAPI does not separate one account from another, so this
+    # is the only thing standing between another user on this machine and the
+    # password. If it cannot be applied the credential is removed rather than
+    # left lying readable, because a file the user believes is protected is
+    # worse than one they know was never stored.
+    try:
+        _restrict(target)
+    except VaultUnavailable:
+        clear()
+        raise
     return target
 
 
@@ -165,20 +190,89 @@ def clear() -> bool:
     return True
 
 
+def _current_sid() -> str | None:
+    """This account's SID, which is stable and not affected by display language."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["whoami", "/user", "/fo", "csv", "/nh"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    parts = [field.strip('" ') for field in result.stdout.strip().split(",")]
+    return parts[-1] if parts and parts[-1].startswith("S-1-") else None
+
+
 def _restrict(target: Path) -> None:
-    """Reduce the file's ACL to its owner and the administrators group."""
+    """Cut the file's access down to this account, SYSTEM and Administrators.
+
+    Machine-scope DPAPI does not isolate one account from another, so this list
+    is what actually keeps another user on this machine from reading the
+    password. Two consequences follow.
+
+    Principals are named by SID rather than by name. `USERNAME` can be empty in
+    a service context, which would previously have produced the argument ':F',
+    and group names are translated on a localised Windows so "Administrators"
+    simply would not resolve.
+
+    And if the command fails the inherited permissions are put back, because
+    `/inheritance:r` removes the existing access first: a half-applied change
+    leaves a file that not even its owner can open. Failing back to ordinary
+    permissions is bad; failing into an unreadable file is worse, and silently
+    doing so, as this did before, is worst.
+    """
     if not is_supported():
         return
     import subprocess
 
+    sid = _current_sid()
+    if sid is None:
+        raise VaultUnavailable(
+            "could not determine this account's SID, so the credential file "
+            "cannot be protected from other users on this machine"
+        )
+
+    grants = []
+    for principal in (sid, "S-1-5-18", "S-1-5-32-544"):  # you, SYSTEM, Administrators
+        grants += ["/grant:r", f"*{principal}:F"]
+
+    try:
+        result = subprocess.run(
+            ["icacls", str(target), "/inheritance:r", *grants],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        _restore_inheritance(target)
+        raise VaultUnavailable(f"could not set permissions on the credential file: {exc}")
+
+    if result.returncode != 0:
+        _restore_inheritance(target)
+        raise VaultUnavailable(
+            "could not restrict the credential file, so it would be readable by "
+            f"other accounts: {result.stdout.strip() or result.stderr.strip()}"
+        )
+
+    # Confirm rather than assume: a zero exit from icacls with no effective
+    # access would be the worst of both outcomes.
+    try:
+        target.read_bytes()
+    except OSError as exc:
+        _restore_inheritance(target)
+        raise VaultUnavailable(f"the credential file became unreadable: {exc}")
+
+
+def _restore_inheritance(target: Path) -> None:
+    """Undo a partial permission change, so the file stays usable."""
+    import subprocess
+
     try:
         subprocess.run(
-            ["icacls", str(target), "/inheritance:r",
-             "/grant:r", f"{os.environ.get('USERNAME', '')}:F",
-             "/grant:r", "*S-1-5-18:F",       # SYSTEM, which is what LogonUI runs as
-             "/grant:r", "*S-1-5-32-544:F"],  # Administrators
+            ["icacls", str(target), "/reset"],
             capture_output=True, text=True, timeout=30, check=False,
         )
     except (OSError, subprocess.SubprocessError):
-        # A tightened ACL is a hardening step, not a correctness requirement.
         pass

@@ -175,10 +175,14 @@ def status() -> int:
         "credential_stored": vault.exists() if vault.is_supported() else False,
         "platform_supported": os.name == "nt",
     }
+    # Whether a model is actually on disk, not merely whether the vosk package
+    # imports. The class imports perfectly well with no model installed, so the
+    # previous check reported a working tile when the phrase could never be
+    # verified.
     try:
-        from .asr import VoskTranscriber  # noqa: F401
+        from .download import is_installed
 
-        payload["speech_model"] = True
+        payload["speech_model"] = bool(is_installed())
     except Exception:  # noqa: BLE001
         payload["speech_model"] = False
     payload["ready"] = all(

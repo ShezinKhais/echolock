@@ -438,6 +438,14 @@ class EchoLockGUI:
         ).pack(side="left", padx=6)
         tk.Label(idle_row, text="minutes of inactivity", font=(FONT, 9), fg=DIM, bg=PANEL).pack(side="left")
 
+        pin_row = tk.Frame(card, bg=PANEL)
+        pin_row.pack(fill="x", padx=14, pady=(6, 2))
+        self.pin_label = tk.Label(pin_row, text="", font=(FONT, 9), fg=DIM, bg=PANEL)
+        self.pin_label.pack(side="left")
+        self.pin_button = _button(pin_row, "Set PIN", self._set_pin)
+        self.pin_button.pack(side="right")
+        self.pin_clear_button = _button(pin_row, "Remove", self._clear_pin)
+
         self.lock_button = _button(card, "Lock now", self._lock, primary=True)
         self.lock_button.pack(fill="x", padx=14, pady=(10, 12))
 
@@ -495,6 +503,7 @@ class EchoLockGUI:
             self.lock_button.config(state="normal")
             self.bar.show(None, self.voiceprint.threshold)
         self._refresh_autostart()
+        self._refresh_pin()
         self._update_state_label()
 
     def _update_state_label(self) -> None:
@@ -721,6 +730,65 @@ class EchoLockGUI:
         # Anything else belongs to another poller; put it back and keep waiting.
         self.results.put(message)
         self.root.after(150, self._poll_download)
+
+    def _refresh_pin(self) -> None:
+        from . import pin
+
+        if pin.is_set():
+            self.pin_label.config(text="PIN set; Escape at the overlay uses it", fg=DIM)
+            self.pin_button.config(text="Change PIN")
+            self.pin_clear_button.pack(side="right", padx=(0, 8))
+        else:
+            self.pin_label.config(text="No PIN. Voice is the only way past the overlay.", fg=WARN)
+            self.pin_button.config(text="Set PIN")
+            self.pin_clear_button.pack_forget()
+
+    def _set_pin(self) -> None:
+        """Ask for a PIN twice and store its digest."""
+        from tkinter import simpledialog
+
+        from . import pin
+
+        first = simpledialog.askstring(
+            "Set PIN", "A PIN to use when your voice is not recognised:",
+            show="*", parent=self.root,
+        )
+        if not first:
+            return
+        again = simpledialog.askstring("Set PIN", "Type it again:", show="*", parent=self.root)
+        if again != first:
+            messagebox.showerror("Not set", "The two entries did not match.", parent=self.root)
+            return
+
+        try:
+            pin.set_pin(first)
+        except pin.PinError as exc:
+            messagebox.showerror("Not set", str(exc), parent=self.root)
+            return
+        finally:
+            del first, again
+
+        messagebox.showinfo(
+            "PIN set",
+            "Stored as a one-way hash, so nothing on disk reveals it.\n\n"
+            "Press Escape at the overlay to use it. Repeated wrong entries are "
+            "throttled with a delay that doubles each time.",
+            parent=self.root,
+        )
+        self._refresh_pin()
+
+    def _clear_pin(self) -> None:
+        from . import pin
+
+        if not messagebox.askyesno(
+            "Remove PIN",
+            "Without a PIN, your voice is the only way past the overlay.\n\n"
+            "Remove it?",
+            parent=self.root,
+        ):
+            return
+        pin.clear()
+        self._refresh_pin()
 
     def _toggle_autostart(self) -> None:
         """Add or remove the Startup shortcut that locks the screen at sign-in."""
