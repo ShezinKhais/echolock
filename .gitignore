@@ -19,3 +19,8 @@ vosk-model-*/
 *.npz
 voiceprint.json
 config.json
+
+# PyInstaller output
+build/
+dist/
+*.spec.bak

@@ -273,6 +273,53 @@ def cmd_autostart(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_download(args: argparse.Namespace) -> int:
+    """Fetch the offline speech model."""
+    from .download import DownloadFailed, download_model, is_installed
+
+    if is_installed() and not args.force:
+        print("A speech model is already installed. Use --force to fetch it again.")
+        return 0
+
+    last = [-1]
+
+    def report(done: int, total: int) -> None:
+        percent = int(done * 100 / max(total, 1))
+        if percent != last[0]:
+            last[0] = percent
+            print(f"\r  downloading speech model... {percent:3d}%", end="", flush=True)
+
+    print("Fetching the offline speech model (about 40 MB).")
+    try:
+        path = download_model(progress=report)
+    except DownloadFailed as exc:
+        print()
+        raise SystemExit(f"error: {exc}")
+    print("\r  downloading speech model... done      ")
+    print(f"\nInstalled to {path}")
+    return 0
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Show the overlay whenever the session goes idle."""
+    from .idle import IdleUnavailable, is_supported, watch
+
+    if not profile_exists():
+        raise SystemExit("No profile found. Run 'echolock enrol' first.")
+    if not is_supported():
+        raise SystemExit("error: idle detection is only implemented for Windows")
+
+    print(f"Watching for {args.minutes:g} minutes of inactivity. Ctrl+C to stop.")
+    print("The overlay covers the desktop; it does not replace the Windows lock.")
+    try:
+        watch(args.minutes, on_lock=lambda: print("  idle, covering the screen"))
+    except IdleUnavailable as exc:
+        raise SystemExit(f"error: {exc}")
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    return 0
+
+
 def cmd_gui(args: argparse.Namespace) -> int:
     from .gui import run_gui
 
@@ -358,6 +405,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("autostart", help="run the overlay when Windows starts")
     p.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
     p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("download-model", help="fetch the offline speech model")
+    p.add_argument("--force", action="store_true", help="fetch even if one is installed")
+    p.set_defaults(func=cmd_download)
+
+    p = sub.add_parser("watch", help="cover the screen after a period of inactivity")
+    p.add_argument("-m", "--minutes", type=float, default=5.0,
+                   help="minutes of inactivity before the overlay appears (default: 5)")
+    p.set_defaults(func=cmd_watch)
 
     p = sub.add_parser("gui", help="open the desktop interface")
     p.set_defaults(func=cmd_gui)

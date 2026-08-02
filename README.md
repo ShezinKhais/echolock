@@ -86,20 +86,34 @@ not enough to work out tomorrow's phrase and prepare a recording in advance.
 
 ## Install
 
+### Windows executable
+
+Download `EchoLock.exe` from the
+[latest release](https://github.com/ShezinKhais/echolock/releases/latest) and run
+it. No Python, no dependencies. It opens the desktop interface; passing
+arguments still gets the command line, so `EchoLock.exe check` works too.
+
+The speech model is not bundled. It is 40 MB of data that changes independently
+of this program, so embedding it would inflate the download for everyone,
+including people who already have one. The interface offers to fetch it on first
+run, into the same place a source install uses.
+
+### From source
+
 ```bash
 git clone https://github.com/ShezinKhais/echolock
 cd echolock
 pip install -e ".[audio,speech]"
+echolock download-model
 ```
 
 Requires Python 3.10 or later. The verification core needs only numpy; the
 microphone and speech-model dependencies are extras, which is what lets the test
 suite run anywhere.
 
-Liveness needs a local Vosk model. Download a small English one from
-[alphacephei.com/vosk/models](https://alphacephei.com/vosk/models), unpack it,
-and point `VOSK_MODEL_PATH` at the folder. It is about 40 MB and never leaves
-your machine.
+`echolock download-model` fetches the small English Vosk model into the profile
+directory. Nothing else is ever downloaded, and the model never leaves your
+machine once it is there.
 
 ## Use
 
@@ -113,8 +127,14 @@ echolock status     # describe the stored profile
 echolock config     # show or change settings
 echolock autostart  # run the overlay when Windows starts
 echolock devices    # list microphones
+echolock watch      # cover the screen after a period of inactivity
 echolock reset      # delete the profile
 ```
+
+`echolock watch --minutes 5` shows the overlay once the session has been idle
+that long, which is what makes it behave like a lock screen during use: step
+away, the desktop is covered; come back and speak to reveal it. The GUI has the
+same control as a checkbox.
 
 `echolock gui` opens a desktop window with the phrase, an enrolment wizard, a
 test button that plots the attempt against the threshold, and the settings. It

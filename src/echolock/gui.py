@@ -288,6 +288,8 @@ class EchoLockGUI:
         self.phrase = None
         self.transcriber = None
         self.model_error: str | None = None
+        self.watching = False
+        self._watch_stop = threading.Event()
         self.results: queue.Queue[Message] = queue.Queue()
         self.testing = False
 
@@ -343,6 +345,9 @@ class EchoLockGUI:
         self.detail_label.pack(pady=(0, 6))
         self.test_button = _button(card, "Speak now", self._test, primary=True)
         self.test_button.pack(pady=(0, 14))
+        # Only shown when the speech model is absent; getting it is otherwise a
+        # download, an unpack, and a folder most people would never find.
+        self.download_button = _button(card, "Download speech model (40 MB)", self._download)
 
         # -- profile -------------------------------------------------------
         card = _card(outer, "voice profile")
@@ -385,6 +390,23 @@ class EchoLockGUI:
         grid.columnconfigure(1, weight=1)
 
         # -- lock ----------------------------------------------------------
+        idle_row = tk.Frame(outer, bg=BG)
+        idle_row.pack(fill="x", pady=(0, 8))
+        self.idle_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            idle_row, text="Cover the screen after", variable=self.idle_var,
+            command=self._toggle_watch, font=(FONT, 9), fg=TEXT, bg=BG,
+            selectcolor=PANEL, activebackground=BG, activeforeground=TEXT,
+            highlightthickness=0, bd=0,
+        ).pack(side="left")
+        self.idle_minutes = tk.DoubleVar(value=5.0)
+        tk.Spinbox(
+            idle_row, from_=1.0, to=60.0, increment=1.0, textvariable=self.idle_minutes,
+            width=4, bg=PANEL, fg=TEXT, buttonbackground=PANEL, relief="flat",
+            highlightthickness=1, highlightbackground=BORDER,
+        ).pack(side="left", padx=6)
+        tk.Label(idle_row, text="minutes of inactivity", font=(FONT, 9), fg=DIM, bg=BG).pack(side="left")
+
         self.lock_button = _button(outer, "Cover the screen now", self._lock, primary=True)
         self.lock_button.pack(fill="x", pady=(2, 6))
         tk.Label(
@@ -477,10 +499,10 @@ class EchoLockGUI:
         else:
             self.model_error = str(message.payload)
             self.detail_label.config(
-                text="The speech model is not installed, so the phrase cannot be checked.\n"
-                     "Voice matching still works; see the README for the download.",
+                text="The speech model is not installed, so the phrase cannot be checked.",
                 fg=WARN,
             )
+            self.download_button.pack(pady=(0, 14))
         self._update_state_label()
 
     # -- actions ----------------------------------------------------------
@@ -607,6 +629,111 @@ class EchoLockGUI:
 
         if self.config.per_attempt_phrase:
             self._new_phrase()
+
+    def _download(self) -> None:
+        """Fetch the speech model in the background, reporting progress."""
+        self.download_button.config(state="disabled", text="Downloading...")
+
+        def worker() -> None:
+            try:
+                from .download import download_model
+
+                download_model(progress=lambda done, total: self.results.put(
+                    Message("download_progress", int(done * 100 / max(total, 1)))
+                ))
+                self.results.put(Message("download_done"))
+            except Exception as exc:  # noqa: BLE001
+                self.results.put(Message("download_error", str(exc)))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.root.after(150, self._poll_download)
+
+    def _poll_download(self) -> None:
+        try:
+            message = self.results.get_nowait()
+        except queue.Empty:
+            self.root.after(150, self._poll_download)
+            return
+
+        if message.kind == "download_progress":
+            self.download_button.config(text=f"Downloading... {message.payload}%")
+            self.root.after(150, self._poll_download)
+            return
+        if message.kind == "download_done":
+            self.download_button.pack_forget()
+            self.model_error = None
+            self.detail_label.config(text="")
+            self._load_model()
+            return
+        if message.kind == "download_error":
+            self.download_button.config(state="normal", text="Download speech model (40 MB)")
+            messagebox.showerror("Download failed", str(message.payload), parent=self.root)
+            return
+        # Anything else belongs to another poller; put it back and keep waiting.
+        self.results.put(message)
+        self.root.after(150, self._poll_download)
+
+    def _toggle_watch(self) -> None:
+        """Start or stop covering the screen after a period of inactivity."""
+        from .idle import is_supported
+
+        if not self.idle_var.get():
+            self._watch_stop.set()
+            self.watching = False
+            return
+        if not is_supported():
+            self.idle_var.set(False)
+            messagebox.showinfo(
+                "Not available",
+                "Idle detection is only implemented for Windows.",
+                parent=self.root,
+            )
+            return
+        if self.voiceprint is None:
+            self.idle_var.set(False)
+            messagebox.showinfo("Enrol first", "Enrol a voice before arming this.", parent=self.root)
+            return
+
+        self._watch_stop.clear()
+        self.watching = True
+
+        def worker() -> None:
+            import time
+
+            from .idle import idle_seconds
+
+            threshold = max(30.0, float(self.idle_minutes.get()) * 60.0)
+            armed = True
+            while not self._watch_stop.is_set():
+                try:
+                    idle = idle_seconds()
+                except Exception:  # noqa: BLE001
+                    return
+                if idle >= threshold and armed:
+                    armed = False
+                    # The overlay owns the Tk main loop, so ask the interface
+                    # thread to raise it rather than touching widgets here.
+                    self.results.put(Message("idle_trigger"))
+                elif idle < threshold:
+                    armed = True
+                time.sleep(3.0)
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.root.after(1000, self._poll_idle)
+
+    def _poll_idle(self) -> None:
+        if not self.watching:
+            return
+        try:
+            message = self.results.get_nowait()
+        except queue.Empty:
+            self.root.after(1000, self._poll_idle)
+            return
+        if message.kind == "idle_trigger":
+            self._lock()
+        else:
+            self.results.put(message)
+        self.root.after(1000, self._poll_idle)
 
     def _lock(self) -> None:
         from .ui import run_overlay
