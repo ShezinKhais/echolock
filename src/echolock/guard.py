@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import ctypes
 import os
-from ctypes import wintypes
 
 WH_KEYBOARD_LL = 13
 WM_KEYDOWN = 0x0100
@@ -48,23 +47,33 @@ VK_F4 = 0x73
 LLKHF_ALTDOWN = 0x20
 
 
-class KBDLLHOOKSTRUCT(ctypes.Structure):
-    _fields_ = [
-        ("vkCode", wintypes.DWORD),
-        ("scanCode", wintypes.DWORD),
-        ("flags", wintypes.DWORD),
-        ("time", wintypes.DWORD),
-        ("dwExtraInfo", ctypes.POINTER(wintypes.ULONG)),
-    ]
-
-
-HOOKPROC = ctypes.WINFUNCTYPE(
-    ctypes.c_long, ctypes.c_int, wintypes.WPARAM, ctypes.POINTER(KBDLLHOOKSTRUCT)
-)
-
-
 def is_supported() -> bool:
     return os.name == "nt"
+
+
+# Everything below this point exists only on Windows. `ctypes.wintypes` raises
+# on import elsewhere and `WINFUNCTYPE` is not defined at all, so building these
+# unconditionally made the module unimportable on Linux, which took the test
+# suite down with it. The rest of the file is deliberately platform-neutral so
+# `doctor` can report on the guard from anywhere.
+if is_supported():
+    from ctypes import wintypes
+
+    class KBDLLHOOKSTRUCT(ctypes.Structure):
+        _fields_ = [
+            ("vkCode", wintypes.DWORD),
+            ("scanCode", wintypes.DWORD),
+            ("flags", wintypes.DWORD),
+            ("time", wintypes.DWORD),
+            ("dwExtraInfo", ctypes.POINTER(wintypes.ULONG)),
+        ]
+
+    HOOKPROC = ctypes.WINFUNCTYPE(
+        ctypes.c_long, ctypes.c_int, wintypes.WPARAM, ctypes.POINTER(KBDLLHOOKSTRUCT)
+    )
+else:  # pragma: no cover - exercised by the Linux CI job, not by assertions
+    KBDLLHOOKSTRUCT = None
+    HOOKPROC = None
 
 
 class Guard:
