@@ -49,7 +49,9 @@ a = Analysis(
         "echolock.gui",
         "echolock.idle",
         "echolock.liveness",
+        "echolock.provider",
         "echolock.ui",
+        "echolock.vault",
         "echolock.verifier",
         "echolock.voiceprint",
         "_cffi_backend",      # sounddevice reaches this through cffi at runtime

@@ -284,6 +284,69 @@ def cmd_autostart(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_credential(args: argparse.Namespace) -> int:
+    """Store, inspect or remove the password the sign-in tile submits."""
+    from .vault import VaultUnavailable, clear, exists, is_supported, store, vault_path
+
+    if args.action == "status":
+        if not is_supported():
+            print("The credential store is only implemented for Windows.")
+            return 0
+        print(f"Credential stored: {'yes' if exists() else 'no'}  ({vault_path()})")
+        return 0
+
+    if args.action == "clear":
+        print("Credential removed." if clear() else "No credential was stored.")
+        return 0
+
+    # Setting one. The password is read from the terminal without echo and is
+    # never accepted as an argument, because arguments end up in shell history
+    # and in the process list where any other user can read them.
+    import getpass
+
+    print(
+        "\nThis stores your Windows password so the sign-in tile can submit it\n"
+        "after your voice matches. Read this before continuing:\n\n"
+        "  It is encrypted with a key held by this machine, because nothing\n"
+        "  else is available before you log in. That stops someone reading it\n"
+        "  from a copy of the file or a stolen drive. It does NOT stop code\n"
+        "  already running as Administrator on this machine from recovering\n"
+        "  it. You are trading some account security for convenience.\n\n"
+        "  'echolock credential clear' removes it at any time.\n"
+    )
+    if input("Type 'yes' to continue: ").strip().lower() != "yes":
+        print("Nothing was stored.")
+        return 1
+
+    password = getpass.getpass("Windows password (not shown): ")
+    if not password:
+        raise SystemExit("error: nothing entered; nothing was stored")
+    if password != getpass.getpass("Type it again: "):
+        raise SystemExit("error: the two entries did not match; nothing was stored")
+
+    try:
+        path = store(password)
+    except (VaultUnavailable, ValueError) as exc:
+        raise SystemExit(f"error: {exc}")
+    finally:
+        del password
+
+    print(f"\nStored.  {path}")
+    print("The tile also needs an enrolled voice; check with 'echolock provider status'.")
+    return 0
+
+
+def cmd_provider(args: argparse.Namespace) -> int:
+    """The machine-readable half of the sign-in tile."""
+    from . import provider
+
+    if args.action == "begin":
+        return provider.begin()
+    if args.action == "verify":
+        return provider.verify_attempt(args.session)
+    return provider.status()
+
+
 def cmd_download(args: argparse.Namespace) -> int:
     """Fetch the offline speech model."""
     from .download import DownloadFailed, download_model, is_installed
@@ -416,6 +479,18 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("autostart", help="run the overlay when Windows starts")
     p.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
     p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("credential", help="password the Windows sign-in tile submits")
+    p.add_argument("action", nargs="?", choices=["set", "clear", "status"], default="status")
+    p.set_defaults(func=cmd_credential)
+
+    # Not in the help: this is spoken by the credential provider, not by people,
+    # and listing it invites someone to run `verify` by hand and wonder why it
+    # refuses without a session token.
+    p = sub.add_parser("provider")
+    p.add_argument("action", nargs="?", choices=["begin", "verify", "status"], default="status")
+    p.add_argument("--session", default="", help="token returned by 'begin'")
+    p.set_defaults(func=cmd_provider)
 
     p = sub.add_parser("download-model", help="fetch the offline speech model")
     p.add_argument("--force", action="store_true", help="fetch even if one is installed")

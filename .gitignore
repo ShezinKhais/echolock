@@ -20,6 +20,11 @@ vosk-model-*/
 voiceprint.json
 config.json
 
+# The stored Windows credential and any in-flight sign-in attempt.
+credential.bin
+provider-session.json
+locked_mic_probe.txt
+
 # PyInstaller output
 build/
 dist/
