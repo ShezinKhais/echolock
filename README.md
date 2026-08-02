@@ -88,10 +88,17 @@ not enough to work out tomorrow's phrase and prepare a recording in advance.
 
 ### Windows executable
 
-Download `EchoLock.exe` from the
-[latest release](https://github.com/ShezinKhais/echolock/releases/latest) and run
-it. No Python, no dependencies. It opens the desktop interface; passing
-arguments still gets the command line, so `EchoLock.exe check` works too.
+Download `EchoLock-windows.zip` from the
+[latest release](https://github.com/ShezinKhais/echolock/releases/latest), unzip
+it anywhere, and run `EchoLock.exe` from inside the folder. No Python, no
+dependencies. It opens the desktop interface; passing arguments still gets the
+command line, so `EchoLock.exe check` works too.
+
+It ships as a folder rather than a lone executable on purpose. A single-file
+build appends the whole archive to the executable and unpacks about 45 MB into a
+temporary directory on *every* launch, which measured over twenty seconds each
+time. The folder build reads the same files straight from disk and opens in
+about a fifth of a second.
 
 The speech model is not bundled. It is 40 MB of data that changes independently
 of this program, so embedding it would inflate the download for everyone,
@@ -135,6 +142,26 @@ echolock reset      # delete the profile
 that long, which is what makes it behave like a lock screen during use: step
 away, the desktop is covered; come back and speak to reveal it. The GUI has the
 same control as a checkbox.
+
+`echolock autostart on`, or the *Lock at every Windows sign-in* checkbox in the
+window, puts a shortcut in the Startup folder so the overlay is already covering
+the desktop by the time you get there. That is the honest limit of what a normal
+program can do, and the section below explains why.
+
+### Why this does not replace the Windows login
+
+The login screen runs on a separate desktop owned by Winlogon. Ordinary
+processes cannot draw on it or send input to it, and that isolation is the whole
+reason a screensaver cannot harvest your password. The supported way to add a
+factor there is a Credential Provider: a COM component loaded into the login
+process, where a defect locks the account out of the machine.
+
+Attaching that to a voice model is a bad trade. Any implementation would have to
+hold your Windows password to hand it over on a match, which reduces the account
+to the accuracy of the verifier, and the verifier occasionally rejects its owner
+with a cold. So EchoLock guards the session behind the Windows login rather than
+standing in front of it: Windows authenticates you, then the overlay is already
+there, and it stays until the enrolled voice reads the phrase.
 
 `echolock gui` opens a desktop window with the phrase, an enrolment wizard, a
 test button that plots the attempt against the threshold, and the settings. It

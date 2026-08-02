@@ -47,10 +47,18 @@ def shortcut_path() -> Path:
     return startup_dir() / SHORTCUT_NAME
 
 
-def _pythonw() -> Path:
-    """The windowed interpreter, so no console flashes up at login."""
+def _launch_command() -> tuple[Path, str]:
+    """What the shortcut should run: an executable and its arguments.
+
+    A packaged build is already the application, so the shortcut points at it
+    directly. A source install has to go through the interpreter, and it uses
+    the windowed one so no console flashes up at login.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable), "lock"
     candidate = Path(sys.executable).with_name("pythonw.exe")
-    return candidate if candidate.exists() else Path(sys.executable)
+    interpreter = candidate if candidate.exists() else Path(sys.executable)
+    return interpreter, "-m echolock lock"
 
 
 def is_enabled() -> bool:
@@ -67,14 +75,15 @@ def enable() -> Path:
 
     # Built through the shell's own COM object rather than by writing .lnk
     # bytes, so Windows produces a shortcut it will definitely accept.
+    executable, arguments = _launch_command()
     script = (
         "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('{link}'); "
         "$s.TargetPath = '{exe}'; "
-        "$s.Arguments = '-m echolock lock'; "
+        "$s.Arguments = '{args}'; "
         "$s.WorkingDirectory = '{cwd}'; "
         "$s.Description = 'EchoLock voice overlay'; "
         "$s.Save()"
-    ).format(link=target, exe=_pythonw(), cwd=Path.home())
+    ).format(link=target, exe=executable, args=arguments, cwd=Path.home())
 
     result = subprocess.run(
         ["powershell", "-NoProfile", "-Command", script],

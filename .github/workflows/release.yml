@@ -35,17 +35,21 @@ jobs:
         run: pyinstaller echolock.spec --noconfirm --distpath ../dist --workpath ../build
 
       - name: Check the executable runs
-        run: |
-          ./dist/EchoLock.exe --version
-          if (-not (Test-Path ./dist/EchoLock.exe)) { exit 1 }
+        run: ./dist/EchoLock/EchoLock.exe --version
+
+      # A one-folder build cannot be attached to a release as-is, so it goes up
+      # as a single zip. That is also the smaller download: compressed, it comes
+      # in below the old single-file executable.
+      - name: Package
+        run: Compress-Archive -Path dist/EchoLock -DestinationPath dist/EchoLock-windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: EchoLock-windows
-          path: dist/EchoLock.exe
+          path: dist/EchoLock-windows.zip
 
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/EchoLock.exe
+          files: dist/EchoLock-windows.zip

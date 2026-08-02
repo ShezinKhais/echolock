@@ -390,29 +390,48 @@ class EchoLockGUI:
         grid.columnconfigure(1, weight=1)
 
         # -- lock ----------------------------------------------------------
-        idle_row = tk.Frame(outer, bg=BG)
-        idle_row.pack(fill="x", pady=(0, 8))
+        card = _card(outer, "screen lock")
+
+        login_row = tk.Frame(card, bg=PANEL)
+        login_row.pack(fill="x", padx=14, pady=(8, 2))
+        self.autostart_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            login_row, text="Lock at every Windows sign-in", variable=self.autostart_var,
+            command=self._toggle_autostart, font=(FONT, 9), fg=TEXT, bg=PANEL,
+            selectcolor=BG, activebackground=PANEL, activeforeground=TEXT,
+            highlightthickness=0, bd=0,
+        ).pack(side="left")
+        tk.Label(
+            card,
+            text="The overlay opens as soon as you sign in, so the desktop stays hidden\n"
+                 "until the phrase is spoken. Windows still asks for your password first.",
+            font=(FONT, 8), fg=DIM, bg=PANEL, justify="left", anchor="w",
+        ).pack(fill="x", padx=32, pady=(0, 8))
+
+        idle_row = tk.Frame(card, bg=PANEL)
+        idle_row.pack(fill="x", padx=14, pady=(0, 2))
         self.idle_var = tk.BooleanVar(value=False)
         tk.Checkbutton(
-            idle_row, text="Cover the screen after", variable=self.idle_var,
-            command=self._toggle_watch, font=(FONT, 9), fg=TEXT, bg=BG,
-            selectcolor=PANEL, activebackground=BG, activeforeground=TEXT,
+            idle_row, text="Lock after", variable=self.idle_var,
+            command=self._toggle_watch, font=(FONT, 9), fg=TEXT, bg=PANEL,
+            selectcolor=BG, activebackground=PANEL, activeforeground=TEXT,
             highlightthickness=0, bd=0,
         ).pack(side="left")
         self.idle_minutes = tk.DoubleVar(value=5.0)
         tk.Spinbox(
             idle_row, from_=1.0, to=60.0, increment=1.0, textvariable=self.idle_minutes,
-            width=4, bg=PANEL, fg=TEXT, buttonbackground=PANEL, relief="flat",
+            width=4, bg=BG, fg=TEXT, buttonbackground=PANEL, relief="flat",
             highlightthickness=1, highlightbackground=BORDER,
         ).pack(side="left", padx=6)
-        tk.Label(idle_row, text="minutes of inactivity", font=(FONT, 9), fg=DIM, bg=BG).pack(side="left")
+        tk.Label(idle_row, text="minutes of inactivity", font=(FONT, 9), fg=DIM, bg=PANEL).pack(side="left")
 
-        self.lock_button = _button(outer, "Cover the screen now", self._lock, primary=True)
-        self.lock_button.pack(fill="x", pady=(2, 6))
+        self.lock_button = _button(card, "Lock now", self._lock, primary=True)
+        self.lock_button.pack(fill="x", padx=14, pady=(10, 12))
+
         tk.Label(
             outer,
-            text="The overlay hides the desktop until you say the phrase. Escape falls back\n"
-                 "to the Windows login. It never replaces your Windows password.",
+            text="Escape falls back to the Windows login, so this never leaves the\n"
+                 "session less protected than the operating system already makes it.",
             font=(FONT, 8), fg=DIM, bg=BG, justify="center",
         ).pack()
 
@@ -447,6 +466,7 @@ class EchoLockGUI:
             self.test_button.config(state="normal")
             self.lock_button.config(state="normal")
             self.bar.show(None, self.voiceprint.threshold)
+        self._refresh_autostart()
         self._update_state_label()
 
     def _update_state_label(self) -> None:
@@ -672,6 +692,40 @@ class EchoLockGUI:
         # Anything else belongs to another poller; put it back and keep waiting.
         self.results.put(message)
         self.root.after(150, self._poll_download)
+
+    def _toggle_autostart(self) -> None:
+        """Add or remove the Startup shortcut that locks the screen at sign-in."""
+        from .autostart import AutostartUnavailable, disable, enable
+
+        wanted = self.autostart_var.get()
+        try:
+            if wanted:
+                enable()
+            else:
+                disable()
+        except AutostartUnavailable as exc:
+            self.autostart_var.set(not wanted)
+            messagebox.showinfo("Not available", str(exc), parent=self.root)
+            return
+
+        if wanted:
+            messagebox.showinfo(
+                "Locking at sign-in",
+                "EchoLock will cover the desktop the next time you sign in.\n\n"
+                "Windows still asks for your password at the login screen. That "
+                "screen belongs to the operating system and no ordinary program "
+                "can draw on it, so this guards the session behind it instead.",
+                parent=self.root,
+            )
+
+    def _refresh_autostart(self) -> None:
+        """Show whether the Startup shortcut is actually there."""
+        try:
+            from .autostart import is_enabled
+
+            self.autostart_var.set(is_enabled())
+        except Exception:  # noqa: BLE001
+            self.autostart_var.set(False)
 
     def _toggle_watch(self) -> None:
         """Start or stop covering the screen after a period of inactivity."""
