@@ -7,16 +7,16 @@ model and no cloud service.
 
 ```
 $ echolock phrase
-peacock yodel daisy vendor
+The cellar watches beneath a frozen vessel.
 
 $ echolock check
 
-Say:  peacock yodel daisy vendor
+Say:  The cellar watches beneath a frozen vessel.
 press Enter, then speak...
 
   result:     UNLOCK
   reason:     voice and phrase both verified
-  heard:      peacock yodel daisy vendor
+  heard:      the cellar watches beneath frozen vessel
   voice score -1.023  (threshold -1.290, margin +0.267)
 ```
 
@@ -60,9 +60,21 @@ distance to the enrolled centroid.
 
 **Liveness: is this today's phrase?**
 Identity alone accepts a recording of the enrolled speaker. The overlay
-therefore displays four words drawn fresh each day, and an offline speech model
-checks that those words were actually spoken, in order. A recording made
-yesterday contains the wrong words.
+therefore displays a sentence built fresh each day, and an offline speech model
+checks that it was actually spoken. A recording made yesterday contains the
+wrong words.
+
+The prompt is a sentence rather than a list of words because a sentence is
+easier to read aloud naturally and transcribes more accurately: a small speech
+model uses context, so words inside a grammatical frame are recognised more
+reliably than the same words in isolation.
+
+Only the randomly chosen words are verified. Connecting words like "the" are
+short and unstressed, and speech models drop them constantly, so requiring them
+would fail honest attempts while adding nothing: they are identical in every
+prompt and carry no freshness. In the example above the check is for *cellar
+watches frozen vessel*, and the transcript "the cellar watches beneath frozen
+vessel" passes even though the model swallowed the "a".
 
 Together they require audio of the right person, saying the right words, from
 the right day.
@@ -108,14 +120,20 @@ echolock reset      # delete the profile
 test button that plots the attempt against the threshold, and the settings. It
 uses tkinter from the standard library, so it adds no dependency.
 
-Enrolment alternates full sentences with lists of unconnected words. Those are
-spoken differently, and the phrase to unlock with is a word list: enrolling only
-on sentences builds a profile of the wrong speaking style and costs real margin
-at unlock time.
+Enrolment alternates everyday sentences with generated passphrase sentences.
+The two are read differently: a familiar sentence flows, while one assembled
+from random words is read more deliberately because the speaker cannot
+anticipate what comes next. Enrolling only on the first style builds a profile
+of a voice the user does not use at the prompt, which costs real margin.
 
 By default the phrase changes daily. `echolock config --per-attempt on` gives a
 fresh phrase for every attempt instead, which shrinks the window in which a
 recording made today could be replayed from a day to a single prompt.
+
+The vocabulary is grouped by part of speech and combined through sentence
+templates, which yields about 1.7 million distinct four-word prompts at the
+default setting and 47 million at five, so prompts do not recur often enough for
+a recording of one to be worth keeping.
 
 Enrolment reads ten prompts aloud, skipping takes that are silent or clipped,
 and reports how consistent they were. Start with `echolock check`: it runs the

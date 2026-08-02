@@ -91,7 +91,7 @@ class Overlay:
 
     # -- construction -----------------------------------------------------
 
-    def _next_phrase(self) -> list[str]:
+    def _next_phrase(self):
         if self.config.per_attempt_phrase:
             return ephemeral_phrase(self.config.word_count)
         return phrase_today(self.config.salt, self.config.word_count)
@@ -119,7 +119,7 @@ class Overlay:
         ).pack(pady=(4, 26))
 
         self.phrase_label = tk.Label(
-            frame, text=format_phrase(self.phrase), font=("Consolas", 34, "bold"),
+            frame, text=self.phrase.text, font=("Segoe UI", 26, "bold"),
             fg=TEXT, bg=PANEL, padx=36, pady=22,
         )
         self.phrase_label.pack()
@@ -188,7 +188,7 @@ class Overlay:
 
                 audio = record(self.config.record_seconds, self.config.sample_rate)
                 decision = verify(
-                    audio, self.phrase, self.voiceprint, self._transcriber,
+                    audio, list(self.phrase.keywords), self.voiceprint, self._transcriber,
                     self.feature_config, min_phrase_ratio=self.config.min_phrase_ratio,
                 )
                 self._results.put(_Attempt(decision=decision))
@@ -227,7 +227,7 @@ class Overlay:
         # A fresh phrase after every failure, so a listener who overheard the
         # previous prompt gains nothing from the next attempt.
         self.phrase = self._next_phrase()
-        self.phrase_label.config(text=format_phrase(self.phrase))
+        self.phrase_label.config(text=self.phrase.text)
         self._set_status(f"Not recognised  ({self.attempts_left} left)", BAD)
         self.detail_label.config(text=f"{reason}\nPress Enter to try again.")
 

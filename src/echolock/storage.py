@@ -19,7 +19,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .phrase import DEFAULT_WORD_COUNT, new_salt
+from .phrase import DEFAULT_KEYWORDS, new_salt
 
 APP_NAME = "EchoLock"
 PROFILE_FILE = "voiceprint.npz"
@@ -57,7 +57,7 @@ class Config:
     """Per-installation settings."""
 
     salt: str = field(default_factory=new_salt)
-    word_count: int = DEFAULT_WORD_COUNT
+    word_count: int = DEFAULT_KEYWORDS   # random words inside the sentence
     per_attempt_phrase: bool = False
     min_phrase_ratio: float = 1.0
     record_seconds: float = 4.0

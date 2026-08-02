@@ -52,10 +52,20 @@ class TestParser:
 
 
 class TestPhrase:
-    def test_prints_todays_phrase(self, echolock_home, capsys):
+    def test_prints_todays_phrase_as_a_sentence(self, echolock_home, capsys):
         assert main(["phrase"]) == 0
-        words = capsys.readouterr().out.split()
-        assert len(words) == Config.load().word_count
+        printed = capsys.readouterr().out.strip()
+        assert printed[0].isupper() and printed.endswith(".")
+
+    def test_printed_phrase_contains_the_verified_words(self, echolock_home, capsys):
+        """What is displayed must contain what the verifier will look for."""
+        from echolock.phrase import phrase_today
+
+        config = Config.load()
+        expected = phrase_today(config.salt, config.word_count)
+        main(["phrase"])
+        printed = capsys.readouterr().out.lower()
+        assert all(word in printed for word in expected.keywords)
 
     def test_is_stable_across_invocations(self, echolock_home, capsys):
         main(["phrase"])

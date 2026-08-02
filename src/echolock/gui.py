@@ -285,7 +285,7 @@ class EchoLockGUI:
     def __init__(self) -> None:
         self.config = Config.load()
         self.voiceprint: Voiceprint | None = None
-        self.phrase: list[str] = []
+        self.phrase = None
         self.transcriber = None
         self.model_error: str | None = None
         self.results: queue.Queue[Message] = queue.Queue()
@@ -490,7 +490,7 @@ class EchoLockGUI:
             self.phrase = ephemeral_phrase(self.config.word_count)
         else:
             self.phrase = phrase_today(self.config.salt, self.config.word_count)
-        self.phrase_label.config(text=format_phrase(self.phrase))
+        self.phrase_label.config(text=self.phrase.text)
 
     def _toggle_mode(self) -> None:
         self.config.per_attempt_phrase = self.mode_var.get()
@@ -544,7 +544,7 @@ class EchoLockGUI:
                     self.results.put(Message("voice_only", voiceprint.score(audio)))
                     return
                 decision = verify(
-                    audio, phrase, voiceprint, transcriber,
+                    audio, list(phrase.keywords), voiceprint, transcriber,
                     FeatureConfig(sample_rate=config.sample_rate),
                     min_phrase_ratio=config.min_phrase_ratio,
                 )

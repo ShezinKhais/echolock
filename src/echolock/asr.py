@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 from .audio import to_int16
-from .wordlist import WORDS
+from .wordlist import SPOKEN
 
 MODEL_ENV = "VOSK_MODEL_PATH"
 
@@ -102,7 +102,7 @@ class VoskTranscriber:
         # "[unk]" lets the decoder emit an explicit unknown rather than forcing
         # every sound onto the nearest pool word, which would let arbitrary
         # speech drift into a passing transcript.
-        self._grammar = json.dumps(list(WORDS) + ["[unk]"])
+        self._grammar = json.dumps(list(SPOKEN) + ["[unk]"])
 
     @property
     def model_path(self) -> Path:

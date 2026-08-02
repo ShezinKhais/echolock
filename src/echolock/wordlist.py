@@ -1,74 +1,70 @@
-"""Word pool for the daily passphrase.
+"""Vocabulary for the spoken passphrase.
 
-Words are chosen to be easy to say and easy for a small offline speech model to
-transcribe: common English nouns, no proper nouns, and (enforced by a test) no
-two entries within the edit distance the liveness matcher tolerates. That
-last property matters for correctness, not tidiness: if "kitten" and "mitten"
-both sat in the pool, a recording of one would satisfy a prompt for the other,
-and two different prompts accepting the same audio weakens exactly the guarantee
-the daily phrase exists to provide.
+The phrase is a short sentence rather than a list of unconnected words. A
+sentence is easier to read aloud naturally, and it also transcribes better: a
+small speech model uses context, so words in a grammatical frame are recognised
+more reliably than the same words in isolation.
 
-Phrase secrecy is not the goal, since the phrase is displayed on screen when it
-is needed, so this list is deliberately public and readable.
+Only the slots filled at random carry the security value. Words are grouped by
+part of speech so a template can produce a sentence that reads sensibly, and the
+verifier checks the chosen words rather than the whole string, letting the
+connecting words be misheard or dropped without failing an honest attempt.
+
+Two properties are enforced by tests:
+
+* No two vocabulary words sit within the edit distance the liveness matcher
+  tolerates. If they did, a recording of one would satisfy a prompt containing
+  the other, and two different prompts accepting the same audio is exactly what
+  the rotating phrase exists to prevent.
+* Every word a template can produce, connecting words included, appears in
+  SPOKEN, which becomes the recogniser's vocabulary. A word missing from it
+  could not be transcribed and would fail every attempt.
+
+Phrase secrecy is not the goal, since the sentence is displayed on screen when
+it is needed, so this list is deliberately public and readable.
 """
 
 from __future__ import annotations
 
-WORDS: tuple[str, ...] = (
-    "anchor", "apple", "arrow", "autumn", "bacon", "badge", "bamboo",
-    "banjo", "basket", "bicycle", "biscuit", "blanket", "blossom", "bottle",
-    "boulder", "branch", "bridge", "bucket", "bundle", "cabin", "cactus",
-    "camera", "candle", "canvas", "canyon", "captain", "cargo", "carpet",
-    "castle", "cedar", "cellar", "chalk", "cherry", "chimney", "cinnamon",
-    "circus", "clover", "cobalt", "compass", "copper", "coral", "cottage",
-    "cotton", "crater", "crayon", "crimson", "crystal", "cyclone", "dagger",
-    "daisy", "dolphin", "domino", "donkey", "dragon", "drifter", "dungeon",
-    "eagle", "ember", "engine", "envelope", "fabric", "falcon", "feather",
-    "fiddle", "figure", "filter", "flannel", "flint", "forest", "fossil",
-    "fountain", "fragment", "frontier", "gadget", "gallon", "garden",
-    "garnet", "gecko", "geyser", "ginger", "glacier", "glimmer", "granite",
-    "gravel", "guitar", "hammer", "hamster", "harbor", "harvest", "hazel",
-    "helmet", "hexagon", "hollow", "honey", "hurdle", "iceberg", "igloo",
-    "impala", "indigo", "island", "ivory", "jacket", "jaguar", "jasmine",
-    "jelly", "jigsaw", "jungle", "junior", "kettle", "kingdom", "kitten",
-    "koala", "ladder", "lagoon", "lantern", "lattice", "lemon", "leopard",
-    "lighthouse", "lilac", "linen", "lobster", "locket", "lumber", "magnet",
-    "mammoth", "mango", "maple", "marble", "marigold", "meadow", "melon",
-    "meteor", "mineral", "mirror", "monsoon", "mosaic", "muffin", "mustard",
-    "nectar", "needle", "nickel", "nomad", "noodle", "notebook", "nugget",
-    "nutmeg", "oatmeal", "obsidian", "octagon", "octopus", "olive", "onyx",
-    "opal", "orbit", "orchid", "otter", "outpost", "oxygen", "oyster",
-    "paddle", "palace", "pancake", "panther", "paprika", "parcel",
-    "parsley", "pasture", "peacock", "pebble", "pelican", "pencil",
-    "penguin", "pepper", "petal", "pewter", "pickle", "pigment", "pillow",
-    "pineapple", "pistol", "planet", "plateau", "platinum", "plaza",
-    "polish", "pollen", "poplar", "portal", "pottery", "prairie", "pretzel",
-    "prism", "pudding", "pumpkin", "puzzle", "pyramid", "quarry", "quartz",
-    "quilt", "rabbit", "radish", "rafter", "rainbow", "ranger", "rattle",
-    "raven", "ribbon", "ripple", "river", "rodeo", "rooster", "rosemary",
-    "rubble", "ruby", "saffron", "sailor", "salmon", "sandal", "sapphire",
-    "satchel", "scarlet", "scooter", "seagull", "sequoia", "shadow",
-    "shamrock", "shelter", "sherbet", "shingle", "shovel", "shuttle",
-    "silver", "siren", "sketch", "slipper", "smolder", "spatula", "spindle",
-    "spiral", "sponge", "sprocket", "squirrel", "stadium", "stencil",
-    "stirrup", "stucco", "sugar", "summit", "sunset", "sushi", "sweater",
-    "syrup", "tablet", "tadpole", "tandem", "tangerine", "tapestry",
-    "teapot", "tempo", "tender", "terrace", "textile", "thermal", "thicket",
-    "thimble", "thunder", "timber", "tinsel", "toaster", "tomato", "topaz",
-    "torch", "tornado", "tortoise", "totem", "tower", "tractor", "trapeze",
-    "treasure", "trellis", "triangle", "tricycle", "trombone", "trophy",
-    "trumpet", "tulip", "tundra", "tunnel", "turban", "turquoise", "turtle",
-    "tuxedo", "ukulele", "umbrella", "unicorn", "uniform", "utensil",
-    "valley", "vanilla", "velvet", "vendor", "venture", "vessel", "village",
-    "vinegar", "violet", "vulture", "waffle", "wagon", "walnut", "walrus",
-    "wander", "wasabi", "waterfall", "weasel", "welcome", "whisker",
-    "whistle", "window", "winter", "wisdom", "wombat", "wooden", "yellow",
-    "yodel", "yogurt", "zebra", "zenith", "zephyr", "zigzag", "zipper",
+ADJECTIVES: tuple[str, ...] = (
+    "amber", "ancient", "brittle", "copper", "crimson", "crooked", "distant",
+    "faded", "frozen", "gentle", "golden", "hidden", "hollow", "humble",
+    "jagged", "marble", "narrow", "nimble", "polished", "quiet", "restless",
+    "rugged", "rusty", "silent", "solemn", "sturdy", "tangled", "velvet",
+    "weary",
 )
+
+NOUNS: tuple[str, ...] = (
+    "anchor", "beacon", "bridge", "canyon", "cellar", "chimney", "compass",
+    "cottage", "falcon", "garden", "glacier", "harbor", "harvest", "kettle",
+    "ladder", "lantern", "meadow", "mountain", "orchard", "pebble", "quarry",
+    "raven", "river", "saddle", "sparrow", "thicket", "timber", "tunnel",
+    "vessel", "willow",
+)
+
+VERBS: tuple[str, ...] = (
+    "borders", "carries", "circles", "covers", "crosses", "crowns", "divides",
+    "follows", "guards", "marks", "shadows", "shelters", "shields",
+    "surrounds", "touches", "watches",
+)
+
+# Connecting words used by the templates. They are never verified, because a
+# speech model drops short unstressed words constantly, but the recogniser
+# still has to know them or it would be forced to map them onto the nearest
+# content word.
+CONNECTORS: tuple[str, ...] = (
+    "the", "a", "and", "beyond", "beneath", "above", "near", "under", "past",
+)
+
+# Words that can be chosen at random, and therefore carry the freshness.
+WORDS: tuple[str, ...] = tuple(sorted(ADJECTIVES + NOUNS + VERBS))
+
+# Everything a prompt can contain, which is what the recogniser is limited to.
+SPOKEN: tuple[str, ...] = tuple(sorted(set(WORDS + CONNECTORS)))
 
 
 def validate_pool() -> None:
-    """Raise if the pool has duplicates or unusable entries.
+    """Raise if the vocabulary has duplicates or unusable entries.
 
     Called by the tests; cheap enough to assert rather than trust a
     hand-maintained literal.
@@ -76,7 +72,11 @@ def validate_pool() -> None:
     if len(WORDS) != len(set(WORDS)):
         seen: set[str] = set()
         dupes = sorted({w for w in WORDS if w in seen or seen.add(w)})  # type: ignore[func-returns-value]
-        raise ValueError(f"duplicate words in pool: {dupes}")
+        raise ValueError(f"duplicate words in vocabulary: {dupes}")
     bad = [w for w in WORDS if not w.isalpha() or not w.islower() or len(w) < 4]
     if bad:
-        raise ValueError(f"unusable words in pool: {bad}")
+        raise ValueError(f"unusable words in vocabulary: {bad}")
+    overlap = ((set(ADJECTIVES) & set(NOUNS)) | (set(NOUNS) & set(VERBS))
+               | (set(ADJECTIVES) & set(VERBS)))
+    if overlap:
+        raise ValueError(f"words in more than one category: {sorted(overlap)}")

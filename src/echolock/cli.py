@@ -36,7 +36,8 @@ def _load_profile() -> Voiceprint:
     return Voiceprint.load(profile_path())
 
 
-def _current_phrase(config: Config) -> list[str]:
+def _current_phrase(config: Config):
+    """The prompt for this attempt: a sentence plus the words to verify."""
     if config.per_attempt_phrase:
         return ephemeral_phrase(config.word_count)
     return phrase_today(config.salt, config.word_count)
@@ -118,9 +119,9 @@ def cmd_phrase(args: argparse.Namespace) -> int:
     config = Config.load()
     if config.per_attempt_phrase:
         print("Per-attempt phrases are enabled; each unlock prompt is generated fresh.")
-        print(f"Example: {format_phrase(ephemeral_phrase(config.word_count))}")
+        print(f"Example: {ephemeral_phrase(config.word_count).text}")
     else:
-        print(format_phrase(phrase_today(config.salt, config.word_count)))
+        print(phrase_today(config.salt, config.word_count).text)
     return 0
 
 
@@ -147,7 +148,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         raise SystemExit(f"error: {exc}")
 
     decision = verify(
-        audio, phrase, voiceprint, transcriber,
+        audio, list(phrase.keywords), voiceprint, transcriber,
         FeatureConfig(sample_rate=config.sample_rate),
         min_phrase_ratio=config.min_phrase_ratio,
     )
@@ -188,10 +189,10 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"  threshold:     {voiceprint.threshold:+.3f}")
     print(f"  dimensions:    {voiceprint.centroid.size}")
     print(f"\nPhrase")
-    print(f"  words:         {config.word_count}")
+    print(f"  random words:  {config.word_count}")
     print(f"  mode:          {'per attempt' if config.per_attempt_phrase else 'daily'}")
     if not config.per_attempt_phrase:
-        print(f"  today:         {format_phrase(phrase_today(config.salt, config.word_count))}")
+        print(f"  today:         {phrase_today(config.salt, config.word_count).text}")
 
     try:
         from .asr import VoskTranscriber
