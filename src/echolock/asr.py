@@ -53,10 +53,32 @@ def find_model(explicit: str | None = None) -> Path:
     for candidate in candidates:
         if candidate.is_dir() and (candidate / "am").exists():
             return candidate
+
+    # Report where the search actually looked. Without this the message is
+    # unactionable when a model *is* installed but somewhere unexpected, which
+    # is the confusing case: the user can see the folder and the tool cannot.
+    if candidates:
+        searched = "\n".join(
+            f"    {path}"
+            f"{'' if path.is_dir() else '   (does not exist)'}"
+            f"{'   (no am/ subfolder, so not a model)' if path.is_dir() and not (path / 'am').exists() else ''}"
+            for path in candidates
+        )
+        detail = f"Looked in:\n{searched}\n\n"
+    else:
+        detail = (
+            f"Nothing to look at: no {MODEL_ENV} is set and neither\n"
+            f"    {profile_dir() / 'models'}\n    {Path.cwd() / 'models'}\n"
+            "exists.\n\n"
+        )
+
     raise SpeechUnavailable(
-        "no Vosk model found. Download a small English model from "
-        "https://alphacephei.com/vosk/models (vosk-model-small-en-us is enough), "
-        f"unpack it, and point {MODEL_ENV} at the extracted folder."
+        "no Vosk model found.\n\n"
+        f"{detail}"
+        "Download a small English model from https://alphacephei.com/vosk/models "
+        "(vosk-model-small-en-us is enough), unpack it, and either put the "
+        f"extracted folder in\n    {profile_dir() / 'models'}\n"
+        f"or point {MODEL_ENV} at it."
     )
 
 

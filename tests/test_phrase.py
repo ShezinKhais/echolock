@@ -128,3 +128,41 @@ class TestSalt:
         salt = new_salt()
         assert len(salt) == 64
         int(salt, 16)  # raises if not hex
+
+
+class TestEnrolmentPrompts:
+    """Enrolment must cover both speaking styles the user will actually use."""
+
+    def test_returns_the_requested_count(self):
+        from echolock.phrase import enrolment_prompts
+
+        assert len(enrolment_prompts(10)) == 10
+
+    def test_alternates_sentences_and_loose_words(self):
+        """A profile built only on sentences loses margin on word-list prompts."""
+        from echolock.phrase import enrolment_prompts
+
+        prompts = enrolment_prompts(6)
+        sentences = [p for p in prompts if p.endswith(".")]
+        word_lists = [p for p in prompts if not p.endswith(".")]
+        assert len(sentences) == 3 and len(word_lists) == 3
+
+    def test_word_list_prompts_use_the_pool(self):
+        from echolock.phrase import enrolment_prompts
+
+        for prompt in enrolment_prompts(8):
+            if not prompt.endswith("."):
+                assert all(w in WORDS for w in prompt.split())
+
+    def test_word_count_is_respected(self):
+        from echolock.phrase import enrolment_prompts
+
+        for prompt in enrolment_prompts(6, word_count=3):
+            if not prompt.endswith("."):
+                assert len(prompt.split()) == 3
+
+    def test_handles_odd_counts(self):
+        from echolock.phrase import enrolment_prompts
+
+        assert len(enrolment_prompts(1)) == 1
+        assert len(enrolment_prompts(7)) == 7

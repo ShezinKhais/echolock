@@ -120,3 +120,41 @@ class TestGuards:
         with pytest.raises(SystemExit) as exc:
             main(["devices"])
         assert "no sounddevice" in str(exc.value)
+
+
+class TestConfigCommand:
+    def test_shows_settings(self, echolock_home, capsys):
+        assert main(["config"]) == 0
+        out = capsys.readouterr().out
+        assert "phrase mode" in out and "words per phrase" in out
+
+    def test_switches_to_per_attempt(self, echolock_home, capsys):
+        assert main(["config", "--per-attempt", "on"]) == 0
+        assert Config.load().per_attempt_phrase is True
+
+    def test_switches_back(self, echolock_home):
+        main(["config", "--per-attempt", "on"])
+        main(["config", "--per-attempt", "off"])
+        assert Config.load().per_attempt_phrase is False
+
+    def test_sets_word_count(self, echolock_home):
+        assert main(["config", "--words", "5"]) == 0
+        assert Config.load().word_count == 5
+
+    def test_rejects_too_few_words(self, echolock_home):
+        with pytest.raises(SystemExit):
+            main(["config", "--words", "1"])
+
+    def test_remembers_the_device(self, echolock_home):
+        assert main(["config", "--device", "3"]) == 0
+        assert Config.load().input_device == 3
+
+
+class TestAutostartCommand:
+    def test_status_does_not_change_anything(self, capsys):
+        from echolock import autostart
+
+        before = autostart.is_enabled()
+        assert main(["autostart", "status"]) == 0
+        assert autostart.is_enabled() is before
+        assert "Autostart is" in capsys.readouterr().out

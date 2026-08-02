@@ -17,22 +17,10 @@ from pathlib import Path
 
 from . import __version__
 from .features import FeatureConfig
-from .phrase import ephemeral_phrase, format_phrase, phrase_today
+from .phrase import enrolment_prompts, ephemeral_phrase, format_phrase, phrase_today
 from .storage import Config, config_path, profile_dir, profile_exists, profile_path
 from .voiceprint import DEFAULT_SENSITIVITY, InsufficientAudio, Voiceprint, build_voiceprint
 
-ENROL_PROMPTS = [
-    "The quick brown fox jumps over the lazy dog.",
-    "Sunlight filtered through the tall kitchen window.",
-    "Seven bright copper kettles lined the wooden shelf.",
-    "She parked the car and walked the rest of the way.",
-    "Autumn leaves gathered along the narrow garden path.",
-    "The train arrives at quarter past eleven tomorrow.",
-    "Fresh bread and strong coffee for breakfast again.",
-    "A grey cat slept beneath the blue painted bench.",
-    "Distant thunder rolled across the open valley floor.",
-    "He counted every step from the door to the corner.",
-]
 
 
 def _stdout_utf8() -> None:
@@ -66,12 +54,13 @@ def cmd_enrol(args: argparse.Namespace) -> int:
     print(f"\nEnrolling a voiceprint from {count} recordings.")
     print("Speak normally, at the distance you would actually sit from the microphone.\n")
 
+    prompts = enrolment_prompts(count, config.word_count)
     try:
         for i in range(count):
-            prompt = ENROL_PROMPTS[i % len(ENROL_PROMPTS)]
-            print(f"  [{i + 1}/{count}] Read aloud:  {prompt}")
+            print(f"  [{i + 1}/{count}] Read aloud:  {prompts[i]}")
             input("        press Enter when ready to record... ")
-            audio = record(args.seconds, config.sample_rate, device=args.device)
+            audio = record(args.seconds, config.sample_rate,
+                           device=args.device if args.device is not None else config.input_device)
 
             level = peak_level(audio)
             if level < 0.01:
@@ -152,7 +141,8 @@ def cmd_check(args: argparse.Namespace) -> int:
     print(f"\nSay:  {format_phrase(phrase)}")
     input("press Enter, then speak... ")
     try:
-        audio = record(args.seconds or config.record_seconds, config.sample_rate, device=args.device)
+        audio = record(args.seconds or config.record_seconds, config.sample_rate,
+                           device=args.device if args.device is not None else config.input_device)
     except AudioUnavailable as exc:
         raise SystemExit(f"error: {exc}")
 
@@ -212,6 +202,70 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"\nSpeech model:    unavailable ({exc})")
     print()
     return 0
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    """Show or change stored settings."""
+    config = Config.load()
+    changed = []
+
+    if args.per_attempt is not None:
+        config.per_attempt_phrase = args.per_attempt == "on"
+        changed.append(f"per_attempt_phrase={config.per_attempt_phrase}")
+    if args.words is not None:
+        if args.words < 2:
+            raise SystemExit("error: --words must be at least 2")
+        config.word_count = args.words
+        changed.append(f"word_count={args.words}")
+    if args.seconds is not None:
+        if args.seconds <= 0:
+            raise SystemExit("error: --seconds must be positive")
+        config.record_seconds = args.seconds
+        changed.append(f"record_seconds={args.seconds}")
+    if args.device is not None:
+        config.input_device = args.device
+        changed.append(f"input_device={args.device}")
+
+    if changed:
+        config.save()
+        print("updated: " + ", ".join(changed))
+        return 0
+
+    print(f"\nSettings ({config_path()})\n")
+    print(f"  phrase mode      {'per attempt' if config.per_attempt_phrase else 'daily'}")
+    print(f"  words per phrase {config.word_count}")
+    print(f"  record seconds   {config.record_seconds}")
+    print(f"  input device     {config.input_device if config.input_device is not None else 'system default'}")
+    print(f"  sample rate      {config.sample_rate}")
+    print("\nChange with, for example:  echolock config --per-attempt on\n")
+    return 0
+
+
+def cmd_autostart(args: argparse.Namespace) -> int:
+    """Turn the login-time overlay on or off."""
+    from .autostart import AutostartUnavailable, disable, enable, is_enabled, shortcut_path
+
+    try:
+        if args.action == "on":
+            path = enable()
+            print(f"EchoLock will start at login.\n  {path}")
+            print(
+                "\nThis covers the desktop after you log in. It does not replace the\n"
+                "Windows login itself, which no ordinary program is allowed to do."
+            )
+        elif args.action == "off":
+            print("Autostart removed." if disable() else "Autostart was not enabled.")
+        else:
+            print(f"Autostart is {'on' if is_enabled() else 'off'}  ({shortcut_path()})")
+    except AutostartUnavailable as exc:
+        raise SystemExit(f"error: {exc}")
+    return 0
+
+
+def cmd_gui(args: argparse.Namespace) -> int:
+    from .gui import run_gui
+
+    return run_gui()
 
 
 def cmd_devices(args: argparse.Namespace) -> int:
@@ -281,6 +335,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("status", help="describe the stored profile")
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("config", help="show or change settings")
+    p.add_argument("--per-attempt", choices=["on", "off"],
+                   help="generate a fresh phrase for every attempt instead of daily")
+    p.add_argument("--words", type=int, help="words per phrase")
+    p.add_argument("--seconds", type=float, help="seconds to record per attempt")
+    p.add_argument("--device", type=int, help="input device index to remember")
+    p.set_defaults(func=cmd_config)
+
+    p = sub.add_parser("autostart", help="run the overlay when Windows starts")
+    p.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
+    p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("gui", help="open the desktop interface")
+    p.set_defaults(func=cmd_gui)
 
     p = sub.add_parser("devices", help="list microphones")
     p.set_defaults(func=cmd_devices)

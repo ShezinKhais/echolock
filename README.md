@@ -92,14 +92,30 @@ your machine.
 ## Use
 
 ```bash
+echolock gui        # everything below, in one window
 echolock enrol      # record samples and build the voiceprint
 echolock phrase     # print today's passphrase
 echolock check      # record once and report the decision, without unlocking
 echolock lock       # show the unlock overlay
 echolock status     # describe the stored profile
+echolock config     # show or change settings
+echolock autostart  # run the overlay when Windows starts
 echolock devices    # list microphones
 echolock reset      # delete the profile
 ```
+
+`echolock gui` opens a desktop window with the phrase, an enrolment wizard, a
+test button that plots the attempt against the threshold, and the settings. It
+uses tkinter from the standard library, so it adds no dependency.
+
+Enrolment alternates full sentences with lists of unconnected words. Those are
+spoken differently, and the phrase to unlock with is a word list: enrolling only
+on sentences builds a profile of the wrong speaking style and costs real margin
+at unlock time.
+
+By default the phrase changes daily. `echolock config --per-attempt on` gives a
+fresh phrase for every attempt instead, which shrinks the window in which a
+recording made today could be replayed from a day to a single prompt.
 
 Enrolment reads ten prompts aloud, skipping takes that are silent or clipped,
 and reports how consistent they were. Start with `echolock check`: it runs the

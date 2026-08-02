@@ -93,3 +93,37 @@ def ephemeral_phrase(words: int = DEFAULT_WORD_COUNT) -> list[str]:
 def format_phrase(words: list[str]) -> str:
     """Render a phrase for display."""
     return " ".join(words)
+
+
+SENTENCE_PROMPTS = (
+    "The quick brown fox jumps over the lazy dog.",
+    "Sunlight filtered through the tall kitchen window.",
+    "Seven bright copper kettles lined the wooden shelf.",
+    "She parked the car and walked the rest of the way.",
+    "Autumn leaves gathered along the narrow garden path.",
+    "The train arrives at quarter past eleven tomorrow.",
+    "Fresh bread and strong coffee for breakfast again.",
+    "A grey cat slept beneath the blue painted bench.",
+    "Distant thunder rolled across the open valley floor.",
+    "He counted every step from the door to the corner.",
+)
+
+
+def enrolment_prompts(count: int, word_count: int = DEFAULT_WORD_COUNT) -> list[str]:
+    """Return *count* things to read aloud during enrolment.
+
+    Alternates full sentences with lists of unconnected words drawn from the
+    passphrase pool, because those are spoken differently: a sentence runs
+    together with sentence rhythm, while four unrelated nouns come out slower
+    and more separated. Enrolling only on sentences builds a profile of the
+    first style and then asks the user to verify in the second, which costs
+    real margin at unlock time. Covering both teaches the profile the range the
+    speaker actually uses.
+    """
+    prompts: list[str] = []
+    for i in range(count):
+        if i % 2 == 0:
+            prompts.append(SENTENCE_PROMPTS[(i // 2) % len(SENTENCE_PROMPTS)])
+        else:
+            prompts.append(format_phrase(ephemeral_phrase(word_count)))
+    return prompts

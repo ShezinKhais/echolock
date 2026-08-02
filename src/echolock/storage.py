@@ -62,6 +62,7 @@ class Config:
     min_phrase_ratio: float = 1.0
     record_seconds: float = 4.0
     sample_rate: int = 16_000
+    input_device: int | None = None
     vosk_model_path: str = ""
 
     @classmethod
