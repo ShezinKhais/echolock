@@ -38,7 +38,7 @@ Every exit leads somewhere at least as safe as where it started:
 | What happens | Result |
 |---|---|
 | The phrase is verified | The overlay closes, revealing the session it was covering. Nothing was unlocked that was locked. |
-| Attempts run out, or you press Escape | The real Windows lock is invoked. The session ends up **more** protected. |
+| Attempts run out, or you press Escape | With a PIN set, it is asked for. Without one, the real Windows lock is invoked and the session ends up **more** protected. |
 | The process is killed, or the machine reboots | Windows' own lock screen is untouched and still applies. |
 
 There is no failure mode in which this software grants access the operating
