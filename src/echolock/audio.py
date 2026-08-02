@@ -1,8 +1,8 @@
 """Microphone capture.
 
 This is the one module that needs real hardware, so it is kept deliberately
-thin and its dependency is imported lazily. Everything else -- features,
-scoring, liveness, the decision itself -- runs on plain arrays and stays
+thin and its dependency is imported lazily. Everything else (features,
+scoring, liveness, the decision itself) runs on plain arrays and stays
 testable on a machine with no sound card, which is also what lets the test
 suite cover the security-critical paths in continuous integration.
 """

@@ -8,7 +8,7 @@ person saying the right words from the right day.
 
 Matching has to tolerate imperfect transcription. A small offline speech model
 mishears word endings, drops short words, and inserts filler, so requiring an
-exact string would reject the legitimate user constantly -- and a check the
+exact string would reject the legitimate user constantly, and a check the
 user disables is worth nothing. Words therefore match within a small edit
 distance, scaled to word length, and must appear in the prompted order:
 insertions ("um", "the") are ignored, but reordering is not accepted.
@@ -105,7 +105,7 @@ def check_phrase(
     """Check whether *transcript* contains *expected*, in order.
 
     *min_ratio* is the fraction of prompted words that must be found. It
-    defaults to 1.0 -- every word -- because the prompt is visible on screen
+    defaults to 1.0, every word, because the prompt is visible on screen
     and there is no reason a cooperating user cannot read all of it. Lowering
     it trades replay resistance for tolerance of a poor microphone.
     """

@@ -40,7 +40,7 @@ class TestMelScale:
         assert np.all(np.diff(hz_to_mel(hz)) > 0)
 
     def test_compresses_high_frequencies(self):
-        """Equal mel steps span more hertz higher up -- the point of the scale."""
+        """Equal mel steps span more hertz higher up, which is the point of the scale."""
         low = mel_to_hz(200.0) - mel_to_hz(100.0)
         high = mel_to_hz(2200.0) - mel_to_hz(2100.0)
         assert high > low

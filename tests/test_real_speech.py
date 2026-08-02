@@ -1,7 +1,7 @@
 """End-to-end checks against real synthesised speech.
 
 The rest of the suite runs on a source-filter model of a voice, which is fast,
-deterministic, and needs no dependencies -- but is not speech. These tests use
+deterministic, and needs no dependencies, but is not speech. These tests use
 Windows' built-in speech synthesiser to produce genuine recordings from several
 distinct voices, then run the whole pipeline over them: enrol one speaker,
 transcribe with the real offline model, and check the unlock decision.

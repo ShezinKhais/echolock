@@ -1,7 +1,7 @@
 """Where the profile lives on disk, and what is in it.
 
 Everything stays on the machine that enrolled it. The voiceprint is a set of
-summary statistics -- means and spreads of cepstral coefficients -- not the
+summary statistics, means and spreads of cepstral coefficients, rather than the
 recordings themselves, which are discarded once enrolment finishes. That is a
 deliberate choice: the statistics are enough to compare a new sample against,
 and cannot be played back as audio the way stored recordings could.

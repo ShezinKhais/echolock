@@ -78,7 +78,7 @@ def cmd_enrol(args: argparse.Namespace) -> int:
                 print("        nothing was heard; skipping this take.\n")
                 continue
             if looks_clipped(audio):
-                print("        that clipped -- move back a little; skipping this take.\n")
+                print("        that clipped; move back a little. Skipping this take.\n")
                 continue
             samples.append(audio)
             print(f"        captured (peak {level:.2f})\n")

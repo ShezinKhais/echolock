@@ -28,9 +28,9 @@ try to be.
 
 A background application on Windows cannot type into the real login screen.
 Winlogon runs on a separate secure desktop that ordinary processes are
-deliberately unable to reach — the same isolation that stops malware from
-automating its way past a password prompt. Working around that is neither
-possible from user space nor desirable.
+deliberately unable to reach. That is the same isolation that stops malware
+from automating its way past a password prompt, and working around it is
+neither possible from user space nor desirable.
 
 So EchoLock covers the desktop and gets out of the way when it recognises you.
 Every exit leads somewhere at least as safe as where it started:
@@ -50,7 +50,7 @@ the session rather than simply closing the window.
 Unlocking requires both. They defend against different attacks, and neither is
 sufficient alone.
 
-**Identity — is this the enrolled speaker?**
+**Identity: is this the enrolled speaker?**
 Each recording is reduced to mel-frequency cepstral coefficients, which describe
 the shape of the spectral envelope: roughly, the resonances of the vocal tract
 that produced the sound. The embedding is the mean and spread of those
@@ -58,7 +58,7 @@ coefficients and of their frame-to-frame deltas, taken over the frames loud
 enough to be speech. A new recording is scored by its per-dimension normalised
 distance to the enrolled centroid.
 
-**Liveness — is this today's phrase?**
+**Liveness: is this today's phrase?**
 Identity alone accepts a recording of the enrolled speaker. The overlay
 therefore displays four words drawn fresh each day, and an offline speech model
 checks that those words were actually spoken, in order. A recording made
@@ -67,8 +67,8 @@ yesterday contains the wrong words.
 Together they require audio of the right person, saying the right words, from
 the right day.
 
-The phrase is not secret — it is displayed exactly when it is needed. What
-matters is that it is *fresh*, and that an outsider cannot predict it: each
+The phrase is not secret, since it is displayed exactly when it is needed. What
+matters is that it is fresh, and that an outsider cannot predict it: each
 installation holds a random salt, so knowing the date and reading this source is
 not enough to work out tomorrow's phrase and prepare a recording in advance.
 
@@ -110,18 +110,18 @@ full decision and prints the score and margin without unlocking anything.
 `features.py` implements the MFCC pipeline rather than importing one, so each
 stage is inspectable:
 
-1. **pre-emphasis** — a first-order high-pass, because speech has far more
+1. **pre-emphasis**, a first-order high-pass, because speech has far more
    energy at low frequencies and the top of the spectrum would otherwise barely
    register
-2. **framing** — 25 ms windows at a 10 ms hop, long enough to resolve pitch and
+2. **framing** into 25 ms windows at a 10 ms hop, long enough to resolve pitch and
    short enough that the vocal tract has not moved much
-3. **windowing** — Hamming, so the FFT does not read frame edges as clicks
-4. **power spectrum** — via FFT
-5. **mel filterbank** — 26 triangular filters spaced evenly in mel, mimicking
+3. **windowing** with a Hamming window, so the FFT does not read frame edges as clicks
+4. **power spectrum** via FFT
+5. **mel filterbank** of 26 triangular filters spaced evenly in mel, mimicking
    the ear's coarser resolution at high frequencies
-6. **logarithm** — matching loudness perception, and turning a change in
+6. **logarithm**, matching loudness perception, and turning a change in
    microphone gain into an additive offset rather than a reshaping
-7. **DCT** — decorrelating the filterbank energies and concentrating them in the
+7. **DCT**, decorrelating the filterbank energies and concentrating them in the
    low coefficients
 
 The DCT is checked against `scipy.fftpack.dct` in the tests and agrees to
@@ -136,16 +136,16 @@ enrolled on one microphone will not transfer cleanly to another.
 
 **Scoring.** Cosine similarity was the obvious first choice and was rejected on
 evidence. Against synthetic speakers it separated genuine from impostor scores
-by 0.016, on a scale where genuine scores themselves spanned 0.015 — no room to
-place a threshold. A per-dimension normalised distance separated them by 0.63 on
+by 0.016, on a scale where genuine scores themselves spanned 0.015, leaving no
+room to place a threshold. A per-dimension normalised distance separated them by 0.63 on
 a scale where genuine scores spanned 1.2. Cosine treats every dimension as
 equally informative; dividing by each dimension's spread lets the stable
 dimensions dominate.
 
 **Threshold placement.** The threshold is calibrated per profile by leave-one-out
 over the enrolment recordings, so it adapts to how consistent a particular
-speaker's takes are. Its position — how many standard deviations below the mean
-— was swept against real recordings of four distinct synthesised voices:
+speaker's takes are. Its position, in standard deviations below the mean, was
+swept against real recordings of four distinct synthesised voices:
 
 | Sensitivity | False rejects | False accepts |
 |---|---|---|
@@ -160,7 +160,7 @@ models, which sit further apart than real voices do. The real recordings are the
 better evidence and set the default.
 
 **A cap on leniency.** Inconsistent enrolment inflates the leave-one-out
-standard deviation, which drags the computed threshold down — far enough, and a
+standard deviation, which drags the computed threshold down. Far enough, and a
 bad enrolment session silently produces a profile that accepts strangers. The
 threshold is therefore capped. When the cap binds, some enrolment samples fall
 below it, and `echolock enrol` says so rather than handing over a permissive
@@ -170,8 +170,8 @@ profile that looks fine.
 
 - **Voice biometrics can be defeated by synthesis.** A good enough model of your
   voice, driven to say the current phrase, would pass. The daily phrase raises
-  the cost — the attacker needs today's words, and cannot predict tomorrow's —
-  but does not eliminate the attack. This is a demonstration of the technique,
+  the cost, since the attacker needs today's words and cannot predict
+  tomorrow's, but does not eliminate the attack. This is a demonstration of the technique,
   not a defence against a determined adversary.
 - **Within a single day, a recording made that day would replay successfully.**
   Set `per_attempt_phrase` in the config to generate a fresh phrase for every
@@ -192,8 +192,8 @@ pytest
 ```
 
 The suite runs without a microphone, a speech model, or anyone's real voice in
-the repository. Speaker audio is synthesised with a source-filter model — a
-buzzy glottal source shaped by formant resonances — so speakers built with
+the repository. Speaker audio is synthesised with a source-filter model, a
+buzzy glottal source shaped by formant resonances, so speakers built with
 different formants are genuinely different signals rather than noise with
 different seeds.
 
@@ -216,7 +216,8 @@ pytest tests/test_real_speech.py -v
 ## Privacy
 
 Enrolment recordings are discarded once the profile is built. What persists is a
-set of summary statistics — 80 numbers — which cannot be played back as audio.
+set of summary statistics, 80 numbers in total, which cannot be played back as
+audio.
 Nothing is transmitted anywhere; the speech model runs locally, which is the
 only acceptable arrangement for something that listens in order to unlock your
 own desktop.

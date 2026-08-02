@@ -7,7 +7,7 @@ sufficient alone:
 * Liveness alone accepts anyone willing to read the words off the screen.
 
 Every failure path returns "locked". An exception while decoding audio, a
-profile that will not load, a transcriber that is unavailable -- all of these
+profile that will not load, a transcriber that is unavailable: all of these
 deny rather than allow, so a malfunction cannot become an opening. That is the
 only safe default for something standing in front of a desktop session.
 """

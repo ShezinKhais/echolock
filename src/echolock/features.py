@@ -1,7 +1,7 @@
 """Mel-frequency cepstral coefficients, implemented directly on numpy.
 
 MFCCs compress a frame of audio into a short vector describing the shape of its
-spectral envelope -- roughly, the resonances of the vocal tract that produced
+spectral envelope: roughly, the resonances of the vocal tract that produced
 it. Two people saying the same word land in different regions of that space,
 which is what makes the features usable for deciding *who* is speaking rather
 than *what* was said.
@@ -22,7 +22,7 @@ stage is inspectable:
 
 No cepstral mean normalisation is applied. CMN would subtract each
 coefficient's average over the utterance, which cancels the microphone's
-colouration -- but it also cancels the speaker's average spectral shape, and
+colouration, but it also cancels the speaker's average spectral shape, and
 that average is precisely the signal this project needs. The cost is that a
 profile enrolled on one microphone will not transfer cleanly to another; see
 the README.
@@ -122,7 +122,7 @@ def mel_filterbank(cfg: FeatureConfig) -> np.ndarray:
 
     Filter *i* rises linearly from mel point *i* to *i+1* and falls to *i+2*, so
     adjacent filters overlap at half amplitude and the bank tiles the band
-    evenly in mel space -- narrow filters at low frequency, wide ones high up.
+    evenly in mel space, with narrow filters low down and wide ones high up.
     """
     n_bins = cfg.n_fft // 2 + 1
     mel_points = np.linspace(
@@ -204,7 +204,7 @@ def voiced_mask(
 
     Two thresholds apply and a frame must clear both.
 
-    The relative one -- *floor_db* below the loudest frame -- adapts to
+    The relative one, set *floor_db* below the loudest frame, adapts to
     whatever level the microphone happened to record at instead of assuming a
     fixed gain. Dropping quiet frames matters because a recording that is
     mostly room tone would otherwise yield a "voiceprint" of the room.

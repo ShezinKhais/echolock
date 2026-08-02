@@ -1,6 +1,6 @@
 """EchoLock: voice and passphrase unlock overlay.
 
-Verifies two independent things before dismissing its overlay -- that the voice
+Verifies two independent things before dismissing its overlay: that the voice
 belongs to the enrolled speaker, and that the speaker is saying the phrase
 currently on screen. Neither check is sufficient alone: the first accepts a
 recording, the second accepts anyone who can read.

@@ -6,7 +6,7 @@ in the repository. So the suite synthesises voices with a source-filter model:
 a buzzy glottal source at some fundamental frequency, shaped by a handful of
 formant resonances. Formant positions are what distinguish one vocal tract from
 another, so speakers built with different formants are genuinely different
-signals for the feature pipeline -- not merely noise with different seeds.
+signals for the feature pipeline, not merely noise with different seeds.
 
 Filtering is done in the frequency domain with numpy alone, keeping the test
 suite free of extra dependencies.

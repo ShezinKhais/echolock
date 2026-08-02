@@ -1,6 +1,6 @@
 """Speaker model: turning recordings into a comparable voiceprint.
 
-Each recording collapses to one fixed-length embedding -- the mean and standard
+Each recording collapses to one fixed-length embedding: the mean and standard
 deviation of its MFCCs and of their deltas, over the frames loud enough to be
 speech. Means describe the speaker's average spectral shape; standard
 deviations describe how much they move around it. Both differ between people.
@@ -9,7 +9,7 @@ Scoring uses a per-dimension normalised distance to the enrolled centroid
 rather than cosine similarity. That choice was measured, not assumed: on
 synthetic speakers with distinct formant structure, cosine put genuine and
 impostor scores 0.016 apart on a scale where genuine scores themselves spanned
-0.015 -- no room to place a threshold. The normalised distance separated them
+0.015, leaving no room to place a threshold. The normalised distance separated them
 by 0.63 on a scale where genuine scores spanned 1.2. Cosine treats every
 dimension as equally informative; dividing by each dimension's spread across
 enrolment lets the stable dimensions dominate, which is what actually
@@ -50,8 +50,8 @@ DEFAULT_SENSITIVITY = 2.0
 # The threshold may never be looser than this, however wide the enrolment
 # spread. Without the cap, inconsistent enrolment recordings inflate the
 # leave-one-out standard deviation, which drags the computed threshold down
-# until it would admit anyone -- a bad enrolment session would silently produce
-# a profile that accepts strangers. Clamping converts that into a visible
+# until it would admit anyone, so a bad enrolment session would silently
+# produce a profile that accepts strangers. Clamping converts that into a visible
 # quality problem instead: some enrolment samples then fall below the
 # threshold, and `enrolment_pass_rate` in the calibration reports it.
 MAX_THRESHOLD_LENIENCY = -2.5
@@ -184,9 +184,9 @@ def build_voiceprint(
     variation in the speaker's voice at the cost of accepting more impostors.
 
     The default of two was measured rather than assumed. Sweeping it against
-    recordings of four real synthetic-speech voices -- enrol on one, test the
-    held-out takes of all four -- gave no false accepts and no false rejects
-    anywhere in 1.5 to 2.5, while three produced two false accepts in
+    recordings of four real synthetic-speech voices, enrolling on one and
+    testing the held-out takes of all four, gave no false accepts and no false
+    rejects anywhere in 1.5 to 2.5, while three produced two false accepts in
     twenty-four impostor attempts. An earlier default of three had looked safe
     against purely synthetic formant models, which are further apart than real
     voices; the real recordings are the better evidence and set the default.

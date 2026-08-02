@@ -15,11 +15,11 @@ So the overlay does not replace Windows authentication and does not pretend to.
 It sits in front of an already-unlocked session as a fast path for the person
 who owns it, and every way out of it leads somewhere at least as safe:
 
-* the phrase is verified  -> the overlay closes, revealing the session it was
-  already covering; nothing has been unlocked that was locked
-* attempts are exhausted, or the user presses Escape -> the real Windows lock
-  is invoked, so the session ends up *more* protected than before
-* the process is killed, or the machine reboots -> Windows' own lock screen is
+* the phrase is verified: the overlay closes, revealing the session it was
+  already covering, so nothing has been unlocked that was locked
+* attempts are exhausted, or the user presses Escape: the real Windows lock
+  is invoked, so the session ends up more protected than before
+* the process is killed, or the machine reboots: Windows' own lock screen is
   untouched and still applies
 
 There is no failure mode in which this software grants access that the

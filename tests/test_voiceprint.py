@@ -126,7 +126,7 @@ class TestSeparation:
     Stated as the two rates a speaker-verification system is actually measured
     by. They are asserted asymmetrically on purpose. A false accept is a
     security failure and is required to be zero. A false reject is a usability
-    failure -- annoying, never dangerous -- so it is bounded rather than
+    failure, annoying but never dangerous, so it is bounded rather than
     forbidden, because no biometric threshold accepts every genuine attempt and
     a test demanding that would only be satisfiable by loosening the threshold
     until impostors got in.

@@ -2,7 +2,7 @@
 
 The commands that need a microphone or a speech model cannot run here, so these
 cover what can be checked without hardware: argument wiring, the commands that
-are pure, and -- importantly -- that the hardware-dependent paths fail with a
+are pure, and, importantly, that the hardware-dependent paths fail with a
 readable message rather than a traceback.
 """
 

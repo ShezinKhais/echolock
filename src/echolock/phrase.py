@@ -1,7 +1,7 @@
 """Passphrase generation.
 
 The phrase shown on the unlock screen changes every day. Its purpose is not
-secrecy -- it is displayed in plain text exactly when it is needed -- but
+secrecy, since it is displayed in plain text exactly when it is needed, but
 freshness: a recording of the enrolled speaker made on a previous day contains
 the wrong words and fails the liveness check.
 

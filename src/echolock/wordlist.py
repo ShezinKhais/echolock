@@ -1,15 +1,15 @@
 """Word pool for the daily passphrase.
 
 Words are chosen to be easy to say and easy for a small offline speech model to
-transcribe: common English nouns, no proper nouns, and -- enforced by a test --
-no two entries within the edit distance the liveness matcher tolerates. That
+transcribe: common English nouns, no proper nouns, and (enforced by a test) no
+two entries within the edit distance the liveness matcher tolerates. That
 last property matters for correctness, not tidiness: if "kitten" and "mitten"
 both sat in the pool, a recording of one would satisfy a prompt for the other,
 and two different prompts accepting the same audio weakens exactly the guarantee
 the daily phrase exists to provide.
 
-Phrase secrecy is not the goal -- the phrase is displayed on screen when it is
-needed -- so this list is deliberately public and readable.
+Phrase secrecy is not the goal, since the phrase is displayed on screen when it
+is needed, so this list is deliberately public and readable.
 """
 
 from __future__ import annotations
