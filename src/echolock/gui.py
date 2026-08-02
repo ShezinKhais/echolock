@@ -39,6 +39,7 @@ DIM = "#8b949e"
 ACCENT = "#58a6ff"
 GOOD = "#3fb950"
 WARN = "#d29922"
+WARN_COLOUR = WARN   # the doctor module also exports WARN, as a state name
 BAD = "#f85149"
 
 FONT = "Segoe UI"
@@ -328,8 +329,16 @@ class EchoLockGUI:
         self.state_label = tk.Label(header, text="", font=(FONT, 9), fg=DIM, bg=BG)
         self.state_label.pack(side="right")
 
+        # -- setup ---------------------------------------------------------
+        # Shown only while something is missing, and it removes itself once
+        # nothing is. A new install otherwise presents every control at once
+        # with no indication of which order they need to happen in.
+        self.setup_card = _card(outer, "set up")
+        self.setup_rows = tk.Frame(self.setup_card, bg=PANEL)
+        self.setup_rows.pack(fill="x", padx=14, pady=(8, 12))
+
         # -- phrase --------------------------------------------------------
-        card = _card(outer, "phrase to say")
+        card = self.phrase_card = _card(outer, "phrase to say")
         self.phrase_label = tk.Label(
             card, text="", font=("Consolas", 17, "bold"), fg=TEXT, bg=PANEL, wraplength=520,
         )
@@ -504,6 +513,7 @@ class EchoLockGUI:
             self.bar.show(None, self.voiceprint.threshold)
         self._refresh_autostart()
         self._refresh_pin()
+        self._refresh_setup()
         self._update_state_label()
 
     def _update_state_label(self) -> None:
@@ -730,6 +740,53 @@ class EchoLockGUI:
         # Anything else belongs to another poller; put it back and keep waiting.
         self.results.put(message)
         self.root.after(150, self._poll_download)
+
+    def _refresh_setup(self) -> None:
+        """List what is still missing, in the order it needs doing.
+
+        The checks come from `doctor`, the same ones the command line reports,
+        so the window and the terminal can never disagree about whether this
+        machine is ready.
+        """
+        from .doctor import FAIL, WARN, run
+
+        for child in self.setup_rows.winfo_children():
+            child.destroy()
+
+        actions = {
+            "voice profile": ("Enrol", self._enrol),
+            "speech model": ("Download", self._download),
+            "fallback PIN": ("Set PIN", self._set_pin),
+            "lock at sign-in": ("Turn on", self._enable_autostart),
+        }
+
+        outstanding = [
+            check for check in run()
+            if check.state in (FAIL, WARN) and check.name in actions
+        ]
+        if not outstanding:
+            self.setup_card.pack_forget()
+            return
+
+        self.setup_card.pack(fill="x", pady=(0, 12), before=self.phrase_card)
+        for check in outstanding:
+            row = tk.Frame(self.setup_rows, bg=PANEL)
+            row.pack(fill="x", pady=3)
+            colour = BAD if check.state == FAIL else WARN_COLOUR
+            tk.Label(
+                row, text="needed" if check.state == FAIL else "optional",
+                font=(FONT, 8, "bold"), fg=colour, bg=PANEL, width=8, anchor="w",
+            ).pack(side="left")
+            tk.Label(
+                row, text=check.name, font=(FONT, 9), fg=TEXT, bg=PANEL, anchor="w",
+            ).pack(side="left")
+            label, command = actions[check.name]
+            _button(row, label, command).pack(side="right")
+
+    def _enable_autostart(self) -> None:
+        self.autostart_var.set(True)
+        self._toggle_autostart()
+        self.refresh()
 
     def _refresh_pin(self) -> None:
         from . import pin
